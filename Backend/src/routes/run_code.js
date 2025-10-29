@@ -1,18 +1,13 @@
-require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
-const cors = require("cors");
-
-const app = express();
-app.use(cors());
-app.use(express.json());
+const router = express.Router();
+const { protect } = require("../middleware/authMiddleware");
 
 const JUDGE0_URL = "https://judge0-ce.p.rapidapi.com";
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST;
-const PORT = process.env.PORT || 3000;
 
-app.post("/run-code", async (req, res) => {
+const runCode = async (req, res) => {
   const { source_code, language_id, stdin } = req.body;
 
   try {
@@ -57,6 +52,8 @@ app.post("/run-code", async (req, res) => {
     console.error(error.response?.data || error.message);
     res.status(500).json({ error: "Error running code" });
   }
-});
+};
 
-app.listen(PORT, () => console.log("Server running on port 3000"));
+router.post("/run", protect, runCode);
+
+module.exports = router;
