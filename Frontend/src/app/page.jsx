@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import Link from "next/link";
 
 export default function Home() {
   const [leaderboardMode, setLeaderboardMode] = useState("duels");
@@ -39,13 +40,13 @@ export default function Home() {
     <div className="min-h-screen bg-white text-neutral-900 p-6 md:p-12">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <div className="w-72 h-24 rounded-lg border-slate-300 flex items-center justify-center bg-gradient-to-br from-white to-slate-50">
+          <div className="w-72 h-24 rounded-lg border-slate-300 flex items-center justify-center">
             <span className="text-3xl font-extrabold text-slate-700 underline">CONFLICT</span>
           </div>
 
           <div className="hidden md:block">
             <h2 className="text-lg font-semibold">Choose your mode — compete, climb, conquer.</h2>
-            <p className="text-sm text-slate-500">Fast 1v1 duels or chaotic Havoc. Leaderboards updated live.</p>
+            <p className="text-sm text-slate-500">Fast 1v1 duels or chaotic Havoc.</p>
           </div>
         </div>
 
@@ -63,17 +64,17 @@ export default function Home() {
 
           <Button variant="ghost" className="p-0 rounded-full h-auto w-auto">
             <Avatar>
-            <AvatarImage src="/avatar-placeholder.png" alt="User Avatar" />
-            <AvatarFallback>U</AvatarFallback>
-          </Avatar>
+              <AvatarImage src="/avatar-placeholder.png" alt="User Avatar" />
+              <AvatarFallback>U</AvatarFallback>
+            </Avatar>
           </Button>
         </div>
       </header>
 
       <main className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-8">
         <section className="md:col-span-2">
-          <div className="rounded-2xl border p-8 bg-gradient-to-b from-white to-slate-50 shadow-sm">
-            <h1 className="text-4xl md:text-5xl font-extrabold text-slate-800">Choose your challenge</h1>
+          <div className="rounded-2xl border p-8  shadow-sm">
+            <h1 className="text-4xl md:text-5xl font-extrabold  text-slate-800">Choose your challenge</h1>
             <p className="mt-3 text-slate-600 text-lg max-w-xl">Jump into fast-paced 1v1 Duels or embrace the chaos in Havoc. Earn trophies, keep streaks and climb the leaderboards.</p>
 
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -82,9 +83,13 @@ export default function Home() {
                   <CardTitle className="text-lg">Duels</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-slate-600">Quick 1v1 matches. Skill matters — outplay your opponent.</p>
+                  <p className="text-sm text-slate-600">Quick 1v1 matches.</p>
                   <div className="mt-4">
-                    <Button className="px-4 py-2 bg-white text-neutral-900 border hover:bg-neutral-900 hover:text-white shadow-none">Play Duels</Button>
+                    <Link href="/duelsmatchup">
+                      <Button className="px-4 py-2 bg-white text-neutral-900 border hover:bg-neutral-900 hover:text-white shadow-none">
+                        Play Duels
+                      </Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
@@ -94,9 +99,11 @@ export default function Home() {
                   <CardTitle className="text-lg">Havoc</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-slate-600">Free-for-all chaos mode. Survive and score big to climb the Havoc board.</p>
+                  <p className="text-sm text-slate-600">Free-for-all chaos mode.</p>
                   <div className="mt-4">
-                    <Button className="px-4 py-2 bg-white text-neutral-900 border hover:bg-neutral-900 hover:text-white shadow-none">Play Havoc</Button>
+                    <Link href="/havocmatchup">
+                      <Button className="px-4 py-2 bg-white text-neutral-900 border hover:bg-neutral-900 hover:text-white shadow-none">Play Havoc</Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
@@ -117,7 +124,9 @@ export default function Home() {
             <CardContent>
               <div className="flex gap-2 mb-4">
                 <Button size="sm" variant={mode === "duels" ? "default" : "ghost"} onClick={() => setLeaderboardMode("duels")}>Duels</Button>
-                <Button size="sm" variant={mode === "havoc" ? "default" : "ghost"} onClick={() => setLeaderboardMode("havoc")}>Havoc</Button>
+                <Link href="/havocmatchup">
+                  <Button size="sm" variant={mode === "havoc" ? "default" : "ghost"} onClick={() => setLeaderboardMode("havoc")}>Havoc</Button>
+                </Link>
               </div>
 
               <ol className="space-y-3">
