@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Eye, EyeOff } from "lucide-react";
-import Link from "next/link";
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Eye, EyeOff } from "lucide-react"
+import Link from "next/link"
+import api from "@/app/api"
 
 export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -17,40 +18,32 @@ export default function LoginForm() {
   });
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+    e.preventDefault()
+    setLoading(true)
 
     try {
-      const res = await fetch("http://localhost:3000/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(form),
-      });
+      const res = await api.post("/auth/login", form)
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Something went wrong");
+      const token = res?.data?.token;
+      if (!token) {
+        const msg = res?.data?.message || "No token returned from server"
+        throw new Error(msg)
       }
 
-      localStorage.setItem("token", data.token);
+      localStorage.setItem("token", token)
 
       router.push("/");
-      setTimeout(() => {
-        setLoading(false);
-      }, 800);
-      
-      console.log("User:", data.user);
     } catch (err) {
-      alert(`${err.message}`);
+      const message =
+        err?.response?.data?.message || err?.message || "Something went wrong"
+      alert(message)
+      console.error("[LoginForm] login error:", err)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   };
 

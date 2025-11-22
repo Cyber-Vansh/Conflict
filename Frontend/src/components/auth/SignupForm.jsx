@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
+import api from "@/app/api";
 
 export default function SignupForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -19,38 +20,52 @@ export default function SignupForm() {
   });
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const validate = () => {
+    if (!form.fullName.trim() || !form.username.trim() || !form.email.trim() || !form.password) {
+      alert("Please fill all fields.");
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
+
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3000/auth/signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(form),
+      const res = await api.post("/auth/signup", {
+        fullName: form.fullName.trim(),
+        username: form.username.trim(),
+        email: form.email.trim(),
+        password: form.password,
       });
 
-      const data = await res.json();
+      const data = res?.data ?? {};
 
-      if (!res.ok) {
-        throw new Error(data.message || "Something went wrong");
+      const token = data.token;
+      if (!token) {
+        const msg = data.message || "No token returned from server";
+        throw new Error(msg);
       }
 
-      localStorage.setItem("token", data.token);
+      localStorage.setItem("token", token);
+
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+        console.log("User:", data.user);
+      }
 
       router.push("/");
-      setTimeout(() => {
-        setLoading(false);
-      }, 800);
-      
-      console.log("User:", data.user);
     } catch (err) {
-      alert(`${err.message}`);
+      const message = err?.response?.data?.message || err?.message || "Something went wrong";
+      alert(message);
+      console.error("[SignupForm] error:", err);
     } finally {
       setLoading(false);
     }
