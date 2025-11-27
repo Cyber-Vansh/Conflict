@@ -89,7 +89,128 @@ const login = async (req, res) => {
   }
 };
 
+const getProfile = async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        username: true,
+        bio: true,
+        avatar: true,
+        dualsCrowns: true,
+        havocCrowns: true,
+        totalBattles: true,
+        wins: true,
+        losses: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    return res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+const updateProfile = async (req, res) => {
+  try {
+    const { bio, avatar, fullName } = req.body;
+
+    const updateData = {};
+    if (bio !== undefined) updateData.bio = bio;
+    if (avatar !== undefined) updateData.avatar = avatar;
+    if (fullName !== undefined) updateData.fullName = fullName;
+
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: updateData,
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        username: true,
+        bio: true,
+        avatar: true,
+        dualsCrowns: true,
+        havocCrowns: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: user,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+const getUserStats = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId) || req.user.id;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        avatar: true,
+        dualsCrowns: true,
+        havocCrowns: true,
+        totalBattles: true,
+        wins: true,
+        losses: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const recentBattles = await prisma.battleParticipant.findMany({
+      where: { userId },
+      include: {
+        battle: {
+          select: {
+            id: true,
+            type: true,
+            mode: true,
+            status: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: { joinedAt: "desc" },
+      take: 10,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        user,
+        recentBattles,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 module.exports = {
   signup,
   login,
+  getProfile,
+  updateProfile,
+  getUserStats,
 };
