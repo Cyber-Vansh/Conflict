@@ -5,6 +5,8 @@ const authRoutes = require("./routes/authRoutes");
 const problemRoutes = require("./routes/problemRoutes");
 const battleRoutes = require("./routes/battleRoutes");
 const submissionRoutes = require("./routes/submissionRoutes");
+const leaderboardRoutes = require("./routes/leaderboardRoutes");
+const friendRoutes = require("./routes/friendRoutes");
 const run_code = require("./routes/run_code");
 
 dotenv.config();
@@ -17,6 +19,8 @@ app.use("/auth", authRoutes);
 app.use("/problems", problemRoutes);
 app.use("/battles", battleRoutes);
 app.use("/submissions", submissionRoutes);
+app.use("/leaderboard", leaderboardRoutes);
+app.use("/friends", friendRoutes);
 app.use("/", run_code);
 
 const PORT = process.env.PORT || 3000;
