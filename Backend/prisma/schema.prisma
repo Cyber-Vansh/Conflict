@@ -1,26 +1,235 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  // Use the JS client generator so Prisma writes the initialized client into
-  // node_modules/.prisma/client which `@prisma/client` expects at runtime.
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "mysql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
+}
+
+enum BattleType {
+  DUALS
+  HAVOC
+}
+
+enum BattleStatus {
+  WAITING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum BattleMode {
+  RANKED
+  FRIEND
+}
+
+enum ProblemDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum SubmissionStatus {
+  PENDING
+  ACCEPTED
+  WRONG_ANSWER
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  RUNTIME_ERROR
+  COMPILATION_ERROR
+  INTERNAL_ERROR
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  BLOCKED
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  fullName  String
-  email     String   @unique
-  password  String
-  username  String   @unique
+  id       Int     @id @default(autoincrement())
+  fullName String
+  email    String  @unique
+  password String
+  username String  @unique
+  bio      String? @db.Text
+  avatar   String?
+
+  dualsCrowns Int @default(1000)
+  havocCrowns Int @default(1000)
+
+  totalBattles Int @default(0)
+  wins         Int @default(0)
+  losses       Int @default(0)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  createdProblems    Problem[]           @relation("ProblemAuthor")
+  submissions        Submission[]
+  battleParticipants BattleParticipant[]
+
+  sentFriendRequests     Friendship[] @relation("FriendshipRequester")
+  receivedFriendRequests Friendship[] @relation("FriendshipAddressee")
+
+  @@index([email])
+  @@index([username])
+  @@index([dualsCrowns(sort: Desc)])
+  @@index([havocCrowns(sort: Desc)])
+}
+
+model Problem {
+  id          Int               @id @default(autoincrement())
+  title       String
+  description String            @db.Text
+  difficulty  ProblemDifficulty
+
+  timeLimit   Int @default(2000)
+  memoryLimit Int @default(256000)
+
+  codeTemplates String? @db.Text
+
+  authorId Int
+  author   User @relation("ProblemAuthor", fields: [authorId], references: [id])
+
+  isPublic Boolean @default(true)
+  tags     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  testCases   TestCase[]
+  battles     Battle[]
+  submissions Submission[]
+
+  @@index([difficulty])
+  @@index([authorId])
+  @@index([isPublic])
+}
+
+model TestCase {
+  id        Int     @id @default(autoincrement())
+  problemId Int
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  input  String @db.Text
+  output String @db.Text
+
+  isSample Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([problemId])
+  @@index([isSample])
+}
+
+model Battle {
+  id     Int          @id @default(autoincrement())
+  type   BattleType
+  mode   BattleMode
+  status BattleStatus @default(WAITING)
+
+  problemId Int
+  problem   Problem @relation(fields: [problemId], references: [id])
+
+  duration  Int
+  startTime DateTime?
+  endTime   DateTime?
+
+  maxPlayers Int @default(2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants BattleParticipant[]
+  submissions  Submission[]
+
+  @@index([status])
+  @@index([type])
+  @@index([mode])
+  @@index([startTime])
+}
+
+model BattleParticipant {
+  id Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  battleId Int
+  battle   Battle @relation(fields: [battleId], references: [id], onDelete: Cascade)
+
+  score       Int  @default(0)
+  rank        Int?
+  crownChange Int  @default(0)
+
+  hasCompleted Boolean  @default(false)
+  joinedAt     DateTime @default(now())
+
+  @@unique([userId, battleId])
+  @@index([userId])
+  @@index([battleId])
+}
+
+model Submission {
+  id Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  problemId Int
+  problem   Problem @relation(fields: [problemId], references: [id])
+
+  battleId Int?
+  battle   Battle? @relation(fields: [battleId], references: [id])
+
+  code       String @db.Text
+  languageId Int
+
+  judge0Token String?
+
+  status          SubmissionStatus @default(PENDING)
+  score           Int              @default(0)
+  totalTestCases  Int              @default(0)
+  passedTestCases Int              @default(0)
+
+  executionTime Float?
+  memoryUsed    Int?
+
+  testResults String? @db.Text
+
+  errorMessage String? @db.Text
+
+  submittedAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([problemId])
+  @@index([battleId])
+  @@index([status])
+  @@index([submittedAt])
+}
+
+model Friendship {
+  id Int @id @default(autoincrement())
+
+  requesterId Int
+  requester   User @relation("FriendshipRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+
+  addresseeId Int
+  addressee   User @relation("FriendshipAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  status FriendshipStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([requesterId, addresseeId])
+  @@index([requesterId])
+  @@index([addresseeId])
+  @@index([status])
 }
