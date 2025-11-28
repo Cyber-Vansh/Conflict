@@ -1,173 +1,372 @@
 "use client"
 
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import api from "@/app/api";
+import {
+  Trophy,
+  Flame,
+  Crown,
+  Target,
+  TrendingUp,
+  Calendar,
+  Award,
+  Medal,
+  Star,
+  Edit
+} from "lucide-react";
 
-const sampleProfile = {
-  name: "John Doe",
-  username: "john_doe",
-  avatar: "/avatar-placeholder.png",
-  streak: 12,
-  havocWon: 120,
-  duelsWon: 98,
-  questionsSolved: {
-    algorithms: 240,
-    sorting: 132,
-    greedy: 58,
-    dp: 76,
-    graphs: 45,
-    trees: 30,
-  },
-};
+export default function ProfilePage() {
+  const [userData, setUserData] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-const COLORS = ["#06b6d4", "#f97316"];
+  useEffect(() => {
+    fetchProfileData();
+  }, []);
 
-export default function ProfilePage({ profile = sampleProfile }) {
-  const { name, username, avatar, streak, havocWon, duelsWon, questionsSolved } = profile;
+  const fetchProfileData = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
 
-  const totalWins = havocWon + duelsWon;
+      const headers = { Authorization: `Bearer ${token}` };
 
-  const pieData = [
-    { name: "Duels", value: duelsWon },
-    { name: "Havoc", value: havocWon },
-  ];
+      const [profileRes, statsRes] = await Promise.all([
+        api.get("/auth/profile", { headers }),
+        api.get("/auth/stats", { headers }),
+      ]);
 
-  const DSA_WHITELIST = new Set(["algorithms", "sorting", "greedy", "dp", "graphs", "trees"]);
-  const dsaEntries = Object.entries(questionsSolved || {})
-    .map(([k, v]) => [k.toLowerCase(), v])
-    .filter(([k]) => DSA_WHITELIST.has(k));
+      setUserData(profileRes.data.data);
+      setStats(statsRes.data.data);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      setLoading(false);
+    }
+  };
 
-  const topDsa = dsaEntries.sort((a, b) => b[1] - a[1]).slice(0, 4);
-  const maxSolved = topDsa.length ? Math.max(...topDsa.map(([, c]) => c)) : 1;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+        <div className="text-white">Loading profile...</div>
+      </div>
+    );
+  }
+
+  const winRate = userData?.totalBattles > 0
+    ? Math.round((userData.wins / userData.totalBattles) * 100)
+    : 0;
+
+  // Map battle types for display
+  const getBattleTypeDisplay = (type) => {
+    return type === 'DUALS' ? 'Duels' : type === 'HAVOC' ? 'Havoc' : type;
+  };
 
   return (
-    <div className="min-h-screen bg-zinc-900 text-white p-6 md:p-12">
-      <div className="max-w-6xl mx-auto">
-        <header className="flex items-start gap-8">
-          {/* Avatar */}
-          <div className="flex-shrink-0">
-            <div className="w-56 h-56 rounded-2xl overflow-hidden">
-              <Avatar className="w-full h-full">
-                <AvatarImage src={avatar} alt={`${name} avatar`} />
-                <AvatarFallback className="text-4xl">{name.charAt(0)}</AvatarFallback>
-              </Avatar>
-            </div>
-          </div>
+    <div className="min-h-screen bg-neutral-950 text-white">
+      {/* Background gradient */}
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-900/10 via-neutral-950 to-neutral-950 pointer-events-none" />
 
-          {/* Name + Stats */}
-          <div className="flex-1 flex flex-col justify-between">
-            <div>
-              <h1 className="text-4xl font-extrabold leading-tight">{name}</h1>
-              <div className="mt-1 text-sm text-zinc-400">{username}</div>
-
-              <div className="mt-6 flex items-center gap-4">
-                <Card className="bg-zinc-800 border border-zinc-700 p-4 w-48">
-                  <CardHeader>
-                    <CardTitle className="text-sm text-zinc-400">Streak</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-white">{streak}</div>
-                    <div className="text-xs text-zinc-500 mt-1">days active</div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-zinc-800 border border-zinc-700 p-4 w-56">
-                  <CardHeader>
-                    <CardTitle className="text-sm text-zinc-400">Wins (total)</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-baseline gap-4">
-                      <div className="text-2xl font-semibold text-white">{totalWins}</div>
-                      <div className="text-sm text-zinc-400">
-                        {duelsWon} duels • {havocWon} havoc
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-              </div>
-            </div>
-
-            {/* Pie chart */}
-            <div className="mt-6 w-44 h-44 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-              <div className="w-36 h-36">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      innerRadius={38}
-                      outerRadius={60}
-                      paddingAngle={2}
-                      dataKey="value"
-                      startAngle={90}
-                      endAngle={-270}
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={index} fill={COLORS[index]} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Lower Section */}
-        <main className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Questions Solved */}
-          <section className="md:col-span-2">
-            <Card className="bg-zinc-800 border border-zinc-700">
-              <CardHeader>
-                <CardTitle className="text-white">Questions Solved</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-4">
-                  {topDsa.map(([category, count]) => (
-                    <div key={category} className="flex items-center gap-4">
-                      <div className="w-36 text-sm text-zinc-400 font-medium capitalize">
-                        {category}
-                      </div>
-                      <div className="flex-1 text-sm text-white">{count} solved</div>
-                    </div>
-                  ))}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Profile Header */}
+        <div className="mb-10">
+          <Card className="bg-neutral-900/50 border-neutral-800 p-8">
+            <div className="flex flex-col md:flex-row items-start gap-8">
+              {/* Avatar */}
+              <div className="relative">
+                <Avatar className="w-32 h-32 border-4 border-neutral-800">
+                  <AvatarImage src={userData?.avatar} />
+                  <AvatarFallback className="bg-neutral-800 text-white text-4xl">
+                    {userData?.username?.[0]?.toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="absolute -bottom-2 -right-2 p-2 bg-emerald-600 rounded-full cursor-pointer hover:bg-emerald-500 transition">
+                  <Edit className="w-4 h-4 text-white" />
                 </div>
-              </CardContent>
-            </Card>
-          </section>
+              </div>
 
-          {/* Right Sidebar */}
-          <aside className="space-y-4">
-            <Card className="bg-zinc-800 border border-zinc-700 p-4">
-              <CardHeader>
-                <CardTitle className="text-white">Win Breakdown</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-zinc-400">Duels</div>
-                <div className="flex items-center justify-between mt-2">
-                  <div className="text-2xl font-semibold text-white">{duelsWon}</div>
-                  <div className="text-xs text-zinc-500">
-                    {Math.round((duelsWon / totalWins) * 100)}%
+              {/* User Info */}
+              <div className="flex-1">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+                  <div>
+                    <h1 className="text-3xl font-bold mb-1 text-white">{userData?.fullName || "User"}</h1>
+                    <p className="text-neutral-300">@{userData?.username}</p>
+                  </div>
+                  <Button variant="outline" className="mt-4 md:mt-0 border-neutral-700 hover:border-emerald-500/50 bg-white text-neutral-900 hover:!text-white hover:bg-emerald-500/10">
+                    Edit Profile
+                  </Button>
+                </div>
+
+                {userData?.bio && (
+                  <p className="text-neutral-300 mb-6 max-w-2xl">{userData.bio}</p>
+                )}
+
+                {/* Quick Stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Trophy className="w-4 h-4 text-emerald-500" />
+                      <span className="text-xs text-neutral-400 font-medium">Battles</span>
+                    </div>
+                    <div className="text-2xl font-bold text-white">{userData?.totalBattles || 0}</div>
+                  </div>
+
+                  <div className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Target className="w-4 h-4 text-emerald-500" />
+                      <span className="text-xs text-neutral-400 font-medium">Win Rate</span>
+                    </div>
+                    <div className="text-2xl font-bold text-emerald-500">{winRate}%</div>
+                  </div>
+
+                  <div className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Award className="w-4 h-4 text-yellow-500" />
+                      <span className="text-xs text-neutral-400 font-medium">Wins</span>
+                    </div>
+                    <div className="text-2xl font-bold text-white">{userData?.wins || 0}</div>
+                  </div>
+
+                  <div className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Crown className="w-4 h-4 text-yellow-500" />
+                      <span className="text-xs text-neutral-400 font-medium">Crowns</span>
+                    </div>
+                    <div className="text-2xl font-bold text-white">
+                      {(userData?.dualsCrowns || 0) + (userData?.havocCrowns || 0)}
+                    </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </Card>
+        </div>
 
-                <div className="h-px bg-zinc-800 my-4" />
+        {/* Detailed Stats Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+          {/* Crown Breakdown */}
+          <Card className="bg-neutral-900/50 border-neutral-800 p-6">
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-white">
+              <Crown className="w-5 h-5 text-yellow-500" />
+              Crown Rankings
+            </h3>
 
-                <div className="text-sm text-zinc-400">Havoc</div>
-                <div className="flex items-center justify-between mt-2">
-                  <div className="text-2xl font-semibold text-white">{havocWon}</div>
-                  <div className="text-xs text-zinc-500">
-                    {Math.round((havocWon / totalWins) * 100)}%
+            <div className="space-y-6">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-sm font-medium text-white">Duels</span>
+                  </div>
+                  <span className="text-lg font-bold text-emerald-500">
+                    {userData?.dualsCrowns || 0}
+                  </span>
+                </div>
+                <div className="h-3 bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all"
+                    style={{ width: `${Math.min((userData?.dualsCrowns || 0) / 20, 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    <span className="text-sm font-medium text-white">Havoc</span>
+                  </div>
+                  <span className="text-lg font-bold text-blue-500">
+                    {userData?.havocCrowns || 0}
+                  </span>
+                </div>
+                <div className="h-3 bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full transition-all"
+                    style={{ width: `${Math.min((userData?.havocCrowns || 0) / 20, 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-neutral-800">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-neutral-400">Total Crowns</span>
+                  <span className="text-xl font-bold text-yellow-500">
+                    {(userData?.dualsCrowns || 0) + (userData?.havocCrowns || 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Battle Records */}
+          <Card className="bg-neutral-900/50 border-neutral-800 p-6">
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-white">
+              <Medal className="w-5 h-5 text-emerald-500" />
+              Battle Records
+            </h3>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-neutral-800/30 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                    <Trophy className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-white">Victories</div>
+                    <div className="text-xs text-neutral-400">Successful battles</div>
                   </div>
                 </div>
-              </CardContent>
+                <div className="text-2xl font-bold text-emerald-500">{userData?.wins || 0}</div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-neutral-800/30 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+                    <Target className="w-5 h-5 text-red-500" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-white">Defeats</div>
+                    <div className="text-xs text-neutral-400">Learning experiences</div>
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-red-500">{userData?.losses || 0}</div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-neutral-800/30 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-white">Win Rate</div>
+                    <div className="text-xs text-neutral-400">Success percentage</div>
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-blue-500">{winRate}%</div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Activity & Achievements */}
+          <Card className="bg-neutral-900/50 border-neutral-800 p-6">
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-white">
+              <Star className="w-5 h-5 text-yellow-500" />
+              Achievements
+            </h3>
+
+            <div className="space-y-3">
+              {userData?.totalBattles >= 10 && (
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-yellow-500/10 to-transparent rounded-lg border border-yellow-500/20">
+                  <div className="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                    <Trophy className="w-5 h-5 text-yellow-500" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-white">Warrior</div>
+                    <div className="text-xs text-neutral-400">Completed 10 battles</div>
+                  </div>
+                </div>
+              )}
+
+              {userData?.wins >= 5 && (
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-emerald-500/10 to-transparent rounded-lg border border-emerald-500/20">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                    <Award className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-white">Victor</div>
+                    <div className="text-xs text-neutral-400">Won 5 battles</div>
+                  </div>
+                </div>
+              )}
+
+              {winRate >= 60 && userData?.totalBattles >= 5 && (
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-500/10 to-transparent rounded-lg border border-blue-500/20">
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <Star className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-white">Champion</div>
+                    <div className="text-xs text-neutral-400">60%+ win rate</div>
+                  </div>
+                </div>
+              )}
+
+              {(!userData?.totalBattles || userData.totalBattles < 10) && (
+                <div className="text-center py-8 text-neutral-400 text-sm">
+                  Complete more battles to unlock achievements!
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {/* Recent Activity */}
+        {stats?.recentBattles && stats.recentBattles.length > 0 && (
+          <div className="mb-10">
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-white">
+              <Calendar className="w-5 h-5 text-emerald-500" />
+              Recent Activity
+            </h3>
+
+            <Card className="bg-neutral-900/50 border-neutral-800">
+              <div className="divide-y divide-neutral-800">
+                {stats.recentBattles.map((battle, idx) => (
+                  <div key={idx} className="p-4 hover:bg-neutral-800/50 transition flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${battle.rank === 1
+                        ? 'bg-emerald-500/10 border border-emerald-500/20'
+                        : 'bg-neutral-800'
+                        }`}>
+                        <span className="text-xl font-bold text-white">#{battle.rank}</span>
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm text-white">
+                          {getBattleTypeDisplay(battle.battle.type)} • {battle.battle.mode}
+                        </div>
+                        <div className="text-xs text-neutral-400">
+                          Score: {battle.score} points
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {battle.crownChange !== undefined && (
+                        <div className={`text-sm font-medium px-3 py-1 rounded-md ${battle.crownChange > 0
+                          ? 'bg-emerald-500/10 text-emerald-500'
+                          : battle.crownChange < 0
+                            ? 'bg-red-500/10 text-red-500'
+                            : 'bg-neutral-800 text-neutral-400'
+                          }`}>
+                          {battle.crownChange > 0 ? '+' : ''}{battle.crownChange}
+                        </div>
+                      )}
+                      {battle.rank === 1 && (
+                        <Medal className="w-6 h-6 text-yellow-500" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </Card>
-          </aside>
-        </main>
+          </div>
+        )}
+
+        {/* Footer */}
+        <footer className="mt-12 pt-8 border-t border-neutral-800">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-neutral-500">
+              © 2025 Conflict. Competitive Coding Platform.
+            </div>
+            <div className="flex gap-6 text-sm text-neutral-500">
+              <a href="#" className="hover:text-emerald-500 transition">About</a>
+              <a href="#" className="hover:text-emerald-500 transition">Help</a>
+              <a href="#" className="hover:text-emerald-500 transition">Discord</a>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );

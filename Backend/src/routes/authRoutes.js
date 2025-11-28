@@ -8,6 +8,7 @@ router.post("/signup", signup);
 router.post("/login", login);
 router.get("/profile", protect, getProfile);
 router.put("/profile", protect, updateProfile);
-router.get("/stats/:userId?", protect, getUserStats);
+router.get("/stats", protect, getUserStats);
+router.get("/stats/:userId", protect, getUserStats);
 
 module.exports = router;

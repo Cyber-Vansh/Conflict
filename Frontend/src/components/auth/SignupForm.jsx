@@ -137,14 +137,14 @@ export default function SignupForm() {
       <Button
         type="submit"
         disabled={loading}
-        className="w-full bg-green-600 hover:bg-green-700 text-white"
+        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
       >
         {loading ? "Creating account..." : "Sign Up"}
       </Button>
 
       <p className="text-sm text-center text-zinc-500 mt-2">
         Already have an account?{" "}
-        <Link href="/login" className="text-blue-500 hover:underline">
+        <Link href="/login" className="text-emerald-500 hover:underline">
           Login
         </Link>
       </p>

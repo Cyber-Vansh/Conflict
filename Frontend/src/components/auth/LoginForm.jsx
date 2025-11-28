@@ -87,14 +87,14 @@ export default function LoginForm() {
       <Button
         type="submit"
         disabled={loading}
-        className="w-full bg-green-600 hover:bg-green-700 hover:cursor-pointer text-white"
+        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
       >
         {loading ? "Logging in..." : "Login"}
       </Button>
 
       <p className="text-sm text-center text-zinc-500 mt-2">
         Don’t have an account?{" "}
-        <Link href="/signup" className="text-blue-500 hover:underline">
+        <Link href="/signup" className="text-emerald-500 hover:underline">
           Sign up
         </Link>
       </p>
