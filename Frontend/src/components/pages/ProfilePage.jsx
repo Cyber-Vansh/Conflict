@@ -60,22 +60,22 @@ export default function ProfilePage() {
     ? Math.round((userData.wins / userData.totalBattles) * 100)
     : 0;
 
-  // Map battle types for display
+
   const getBattleTypeDisplay = (type) => {
     return type === 'DUALS' ? 'Duels' : type === 'HAVOC' ? 'Havoc' : type;
   };
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white">
-      {/* Background gradient */}
+
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-900/10 via-neutral-950 to-neutral-950 pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Profile Header */}
+
         <div className="mb-10">
           <Card className="bg-neutral-900/50 border-neutral-800 p-8">
             <div className="flex flex-col md:flex-row items-start gap-8">
-              {/* Avatar */}
+
               <div className="relative">
                 <Avatar className="w-32 h-32 border-4 border-neutral-800">
                   <AvatarImage src={userData?.avatar} />
@@ -88,7 +88,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* User Info */}
+
               <div className="flex-1">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
                   <div>
@@ -104,7 +104,7 @@ export default function ProfilePage() {
                   <p className="text-neutral-300 mb-6 max-w-2xl">{userData.bio}</p>
                 )}
 
-                {/* Quick Stats */}
+
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-800">
                     <div className="flex items-center gap-2 mb-2">
@@ -145,9 +145,9 @@ export default function ProfilePage() {
           </Card>
         </div>
 
-        {/* Detailed Stats Grid */}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-          {/* Crown Breakdown */}
+
           <Card className="bg-neutral-900/50 border-neutral-800 p-6">
             <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-white">
               <Crown className="w-5 h-5 text-yellow-500" />
@@ -202,7 +202,7 @@ export default function ProfilePage() {
             </div>
           </Card>
 
-          {/* Battle Records */}
+
           <Card className="bg-neutral-900/50 border-neutral-800 p-6">
             <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-white">
               <Medal className="w-5 h-5 text-emerald-500" />
@@ -251,7 +251,7 @@ export default function ProfilePage() {
             </div>
           </Card>
 
-          {/* Activity & Achievements */}
+
           <Card className="bg-neutral-900/50 border-neutral-800 p-6">
             <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-white">
               <Star className="w-5 h-5 text-yellow-500" />
@@ -304,7 +304,7 @@ export default function ProfilePage() {
           </Card>
         </div>
 
-        {/* Recent Activity */}
+
         {stats?.recentBattles && stats.recentBattles.length > 0 && (
           <div className="mb-10">
             <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-white">
@@ -354,7 +354,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Footer */}
+
         <footer className="mt-12 pt-8 border-t border-neutral-800">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-sm text-neutral-500">

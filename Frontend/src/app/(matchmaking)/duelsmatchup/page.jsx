@@ -1,287 +1,640 @@
 "use client"
 
-import React, { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import api from "@/app/api";
+import {
+  Swords,
+  Users,
+  Clock,
+  Zap,
+  Crown,
+  Target,
+  ArrowLeft,
+  Loader2,
+  Dice3,
+  UserPlus
+} from "lucide-react";
 
 export default function DuelsMatchupPage() {
-  const durations = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 300]
-  const difficulties = ["easy", "medium", "hard"]
+  const router = useRouter();
+  const [mode, setMode] = useState("select"); // select, ranked, friendly-create, friendly-join, lobby
+  const [battleType, setBattleType] = useState(null); // "RANKED" or "FRIEND"
+  const [currentBattle, setCurrentBattle] = useState(null);
+  const [problems, setProblems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pollingInterval, setPollingInterval] = useState(null);
 
-  const topicGroups = {
-    "Arrays & Strings": ["arrays", "strings", "prefix-sum", "sliding-window", "two-pointers", "hashing", "intervals", "matrix", "simulation"],
-    "Searching & Sorting": ["binary-search", "binary-search-on-answer", "quick-sort", "merge-sort", "counting-sort", "radix-sort", "top-k", "custom-sorting", "search-in-rotated-array"],
-    "Linked Lists": ["singly-linked-list", "doubly-linked-list", "fast-slow-pointers", "linked-list-reversal", "cycle-detection", "merge-k-lists", "linked-list-math"],
-    "Stacks & Queues": ["monotonic-stack", "monotonic-queue", "min-stack", "queue-using-stacks", "stack-using-queues", "expression-evaluation", "parentheses"],
-    "Trees": ["binary-tree", "binary-search-tree", "tree-traversal", "tree-recursion", "serialization", "lowest-common-ancestor", "segment-tree", "fenwick-tree", "trie"],
-    "Graphs": ["bfs", "dfs", "dijkstra", "topological-sort", "union-find", "minimum-spanning-tree", "bellman-ford", "floyd-warshall", "graph-coloring", "connected-components"],
-    "Dynamic Programming": ["dp-1d", "dp-2d", "subsequence-dp", "knapsack-dp", "dp-on-trees", "dp-on-graphs", "digit-dp", "bitmask-dp", "interval-dp", "matrix-chain", "state-dp"],
-    "Mathematics": ["number-theory", "primes-sieve", "gcd-lcm", "combinatorics", "modular-arithmetic", "factorization", "probability", "geometry"],
-    "Bit Manipulation": ["bitwise-ops", "xor-tricks", "subsets-by-bits", "bitmasking-dp", "counting-bits"],
-    "Greedy": ["greedy-activity-selection", "scheduling-greedy", "two-pointer-greedy", "interval-greedy", "huffman-concept", "min-jumps", "coin-greedy"],
-    "Heaps / Priority Queue": ["min-heap", "max-heap", "k-largest", "top-k-frequent", "heap-sort", "priority-scheduling"],
-    "Backtracking": ["subsets-backtracking", "permutations", "combinations", "n-queens", "sudoku-solver", "graph-backtracking", "word-search-backtracking"],
-    "Recursion": ["divide-and-conquer", "recursion-trees", "memoization"],
-    "Tries": ["word-dictionary", "auto-complete", "prefix-queries", "trie-word-search", "xor-trie"],
-    "Advanced Data Structures": ["lru-cache", "lfu-cache", "ordered-set", "ordered-map", "deque", "skip-list", "bloom-filter", "rope"],
-    "Concurrency": ["semaphores", "mutex", "synchronization"],
-    "SQL / Database": ["joins", "aggregation", "window-functions", "subqueries", "grouping", "ranking"]
-  }
 
-  const [selectedDuration, setSelectedDuration] = useState(10)
-  const [selectedTags, setSelectedTags] = useState(new Set([]))
-  const [friendInput, setFriendInput] = useState("")
-  const [invitedFriends, setInvitedFriends] = useState([])
+  const [roomId, setRoomId] = useState("");
+  const [selectedProblem, setSelectedProblem] = useState(null);
+  const [duration, setDuration] = useState(600);
 
-  const [selectedDifficulties, setSelectedDifficulties] = useState(["easy"])
-  const [numQuestions, setNumQuestions] = useState(1)
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) router.push("/login");
+  }, [router]);
 
-  const [openGroups, setOpenGroups] = useState(
-    Object.fromEntries(Object.keys(topicGroups).map(k => [k, false]))
-  )
-
-  function toggleTag(tag) {
-    setSelectedTags(prev => {
-      const copy = new Set(prev)
-      if (copy.has(tag)) copy.delete(tag)
-      else copy.add(tag)
-      return copy
-    })
-  }
-
-  function toggleDifficulty(d) {
-    setSelectedDifficulties(prev => {
-      const exists = prev.includes(d)
-      if (exists) return prev.filter(x => x !== d)
-      if (prev.length < numQuestions) return [...prev, d]
-      return [...prev.slice(1), d]
-    })
-  }
-
-  function handleNumQuestionsChange(v) {
-    const n = Math.max(1, Math.min(20, Number(v) || 1))
-    setNumQuestions(n)
-    setSelectedDifficulties(prev => {
-      if (prev.length <= n) return prev
-      return prev.slice(0, n)
-    })
-  }
-
-  function addFriend() {
-    const t = friendInput.trim()
-    if (!t) return
-    if (invitedFriends.includes(t)) {
-      setFriendInput("")
-      return
+  useEffect(() => {
+    if (mode === "lobby" && currentBattle) {
+      const interval = setInterval(() => {
+        pollBattleStatus();
+      }, 2000);
+      setPollingInterval(interval);
+      return () => clearInterval(interval);
     }
-    setInvitedFriends(prev => [...prev, t])
-    setFriendInput("")
+  }, [mode, currentBattle]);
+
+  const pollBattleStatus = async () => {
+    if (!currentBattle) return;
+    try {
+      const response = await api.get(`/battles/${currentBattle.id}`);
+      const updatedBattle = response.data.data;
+      setCurrentBattle(updatedBattle);
+      if (updatedBattle.status === "ACTIVE") {
+        router.push(`/compiler?battleId=${updatedBattle.id}`);
+      }
+    } catch (error) {
+      console.error("Error polling battle:", error);
+    }
+  };
+
+  const fetchProblems = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get("/problems?isPublic=true&limit=50");
+      const problemsData = Array.isArray(response.data.data) ? response.data.data : [];
+      setProblems(problemsData);
+      if (problemsData.length > 0) {
+        setSelectedProblem(problemsData[0].id);
+      }
+    } catch (error) {
+      console.error("Error fetching problems:", error);
+      setProblems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  const findRankedMatch = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+
+
+      const response = await api.get("/battles?type=DUALS&status=WAITING&mode=RANKED");
+      const availableBattles = response.data.data || [];
+
+      if (availableBattles.length > 0) {
+
+        const battle = availableBattles[0];
+        await api.post(
+          `/battles/${battle.id}/join`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const battleResponse = await api.get(`/battles/${battle.id}`);
+        setCurrentBattle(battleResponse.data.data);
+        setMode("lobby");
+      } else {
+
+        const problemsResponse = await api.get("/problems?isPublic=true&limit=50");
+        const problemsData = problemsResponse.data.data || [];
+        if (problemsData.length === 0) {
+          alert("No problems available");
+          setLoading(false);
+          return;
+        }
+
+        const randomProblem = problemsData[Math.floor(Math.random() * problemsData.length)];
+
+        const createResponse = await api.post(
+          "/battles",
+          {
+            type: "DUALS",
+            mode: "RANKED",
+            problemId: randomProblem.id,
+            duration: 600,
+            maxPlayers: 2,
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        setCurrentBattle(createResponse.data.data);
+        setMode("lobby");
+      }
+    } catch (error) {
+      console.error("Error finding match:", error);
+      alert(error.response?.data?.message || "Failed to find match");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  const createFriendlyRoom = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const response = await api.post(
+        "/battles",
+        {
+          type: "DUALS",
+          mode: "FRIEND",
+          problemId: selectedProblem,
+          duration: duration,
+          maxPlayers: 2,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setCurrentBattle(response.data.data);
+      setMode("lobby");
+    } catch (error) {
+      console.error("Error creating room:", error);
+      alert(error.response?.data?.message || "Failed to create room");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  const joinFriendlyRoom = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+
+
+      const battleResponse = await api.get(`/battles/${roomId}`);
+      const battle = battleResponse.data.data;
+
+      if (battle.mode !== "FRIEND") {
+        alert("This is not a friendly match room");
+        setLoading(false);
+        return;
+      }
+
+      if (battle.status !== "WAITING") {
+        alert("This battle has already started or ended");
+        setLoading(false);
+        return;
+      }
+
+      await api.post(
+        `/battles/${roomId}/join`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setCurrentBattle(battle);
+      setMode("lobby");
+    } catch (error) {
+      console.error("Error joining room:", error);
+      alert(error.response?.data?.message || "Failed to join room. Please check the Room ID.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startBattle = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      await api.post(
+        `/battles/${currentBattle.id}/start`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (error) {
+      console.error("Error starting battle:", error);
+      alert(error.response?.data?.message || "Failed to start battle");
+      setLoading(false);
+    }
+  };
+
+  const leaveBattle = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      await api.post(
+        `/battles/${currentBattle.id}/leave`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setCurrentBattle(null);
+      setMode("select");
+    } catch (error) {
+      console.error("Error leaving battle:", error);
+    }
+  };
+
+  const getDifficultyColor = (difficulty) => {
+    switch (difficulty) {
+      case "EASY": return "text-emerald-500";
+      case "MEDIUM": return "text-yellow-500";
+      case "HARD": return "text-red-500";
+      default: return "text-neutral-400";
+    }
+  };
+
+
+  if (mode === "select") {
+    return (
+      <div className="min-h-screen bg-neutral-950 text-white">
+        <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-neutral-950 to-neutral-950 pointer-events-none" />
+
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="mb-8">
+            <Button
+              variant="ghost"
+              onClick={() => router.push("/")}
+              className="text-neutral-400 hover:text-white mb-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Home
+            </Button>
+
+            <div className="flex items-center gap-3 mb-2">
+              <Swords className="w-8 h-8 text-emerald-500" strokeWidth={2.5} />
+              <h1 className="text-4xl font-bold text-white">Duels</h1>
+            </div>
+            <p className="text-neutral-400">Choose your battle mode</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <Card className="bg-neutral-900/50 border-neutral-800 p-8">
+              <div className="mb-6">
+                <div className="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20 inline-block mb-4">
+                  <Crown className="w-8 h-8 text-emerald-500" />
+                </div>
+                <h2 className="text-2xl font-bold mb-2 text-white">Ranked Match</h2>
+                <p className="text-neutral-400 mb-4">
+                  Compete for crowns. Get matched automatically with opponents of similar skill.
+                </p>
+
+                <div className="space-y-2 text-sm text-neutral-500 mb-6">
+                  <div className="flex items-center gap-2">
+                    <Dice3 className="w-4 h-4" />
+                    <span>Random problem selection</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4" />
+                    <span>Instant matchmaking</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-4 h-4" />
+                    <span>Earn/lose crowns</span>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                onClick={() => { setBattleType("RANKED"); findRankedMatch(); }}
+                disabled={loading}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Finding Match...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 mr-2" />
+                    Find Ranked Match
+                  </>
+                )}
+              </Button>
+            </Card>
+
+
+            <Card className="bg-neutral-900/50 border-neutral-800 p-8">
+              <div className="mb-6">
+                <div className="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20 inline-block mb-4">
+                  <Users className="w-8 h-8 text-emerald-500" />
+                </div>
+                <h2 className="text-2xl font-bold mb-2 text-white">Friendly Match</h2>
+                <p className="text-neutral-400 mb-4">
+                  Create a private room or join a friend's room. No crown changes.
+                </p>
+
+                <div className="space-y-2 text-sm text-neutral-500 mb-6">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4" />
+                    <span>Choose your problem</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <UserPlus className="w-4 h-4" />
+                    <span>Invite friends with Room ID</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    <span>Practice without pressure</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Button
+                  onClick={() => { setBattleType("FRIEND"); setMode("friendly-create"); fetchProblems(); }}
+                  className="w-full bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700"
+                >
+                  <Target className="w-4 h-4 mr-2" />
+                  Create Room
+                </Button>
+                <Button
+                  onClick={() => { setBattleType("FRIEND"); setMode("friendly-join"); }}
+                  variant="outline"
+                  className="w-full border-neutral-700 hover:border-emerald-500/50 hover:bg-emerald-500/10 text-white"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Join Room
+                </Button>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  function removeFriend(name) {
-    setInvitedFriends(prev => prev.filter(f => f !== name))
-  }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-b bg-zinc-900">
-      <div className="w-full max-w-4xl">
-        <Card className="p-6 bg-zinc-800 border border-zinc-600 shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-2xl text-green-600">Duels — Create Match</CardTitle>
-            <p className="text-sm text-zinc-400 mt-1">Pick a time, tag the problem domains and invite a friend.</p>
-          </CardHeader>
+  if (mode === "friendly-create") {
+    return (
+      <div className="min-h-screen bg-neutral-950 text-white">
+        <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-neutral-950 to-neutral-950 pointer-events-none" />
 
-          <CardContent className="mt-6 space-y-6">
-            <section>
-              <h3 className="text-sm font-medium text-zinc-200 mb-3">Match duration</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {durations.map(d => (
+        <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <Button
+            variant="ghost"
+            onClick={() => setMode("select")}
+            className="text-neutral-400 hover:text-white mb-8"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+
+          <h1 className="text-3xl font-bold mb-6 text-white">Create Friendly Room</h1>
+
+          <Card className="bg-neutral-900/50 border-neutral-800 p-6 space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-3">
+                Select Problem
+              </label>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
+                </div>
+              ) : problems.length === 0 ? (
+                <div className="text-center py-8 text-neutral-500">
+                  No problems available
+                </div>
+              ) : (
+                <select
+                  value={selectedProblem || ""}
+                  onChange={(e) => setSelectedProblem(Number(e.target.value))}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white"
+                >
+                  {problems.map((problem) => (
+                    <option key={problem.id} value={problem.id}>
+                      {problem.title} ({problem.difficulty})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-3">
+                Duration (minutes)
+              </label>
+              <div className="grid grid-cols-4 gap-3">
+                {[5, 10, 15, 30].map((min) => (
                   <button
-                    key={d}
-                    onClick={() => setSelectedDuration(d)}
-                    className={`text-left rounded-lg transition-colors focus:outline-none border border-zinc-700 p-8 shadow-sm bg-zinc-800 ${
-                      selectedDuration === d
-                        ? "ring-2 ring-green-500"
-                        : "hover:ring-1 hover:ring-zinc-500"
-                    }`}
+                    key={min}
+                    onClick={() => setDuration(min * 60)}
+                    className={`p-3 rounded-lg border transition ${duration === min * 60
+                      ? "bg-emerald-600 border-emerald-500 text-white"
+                      : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-neutral-600"
+                      }`}
                   >
-                    <div className="text-lg font-semibold text-zinc-100">{d} min</div>
-                    <div className="text-xs text-zinc-400 mt-1">
-                      {d >= 45 ? "Marathon" : "Quick match"}
-                    </div>
+                    {min} min
                   </button>
                 ))}
               </div>
-            </section>
+            </div>
 
-            <section>
-              <h3 className="text-sm font-medium text-zinc-200 mb-3">Select tags (multiple)</h3>
-
-              <div className="h-64 sm:h-80 overflow-y-scroll hide-scrollbar p-2 space-y-3 bg-zinc-900 rounded-md border border-zinc-700">
-                {Object.entries(topicGroups).map(([group, items]) => {
-                  const open = openGroups[group]
-                  return (
-                    <div key={group} className="bg-zinc-800 border border-zinc-700 rounded-md p-3">
-                      <button
-                        onClick={() =>
-                          setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }))
-                        }
-                        className="w-full flex items-center justify-between text-left"
-                      >
-                        <div className="text-sm font-medium text-zinc-200">{group}</div>
-                        <div className="text-xs text-zinc-400">{open ? "Hide" : "Show"}</div>
-                      </button>
-
-                      {open && (
-                        <div className="mt-3 flex flex-wrap gap-3">
-                          {items.map(tag => {
-                            const active = selectedTags.has(tag)
-                            return (
-                              <button
-                                key={tag}
-                                onClick={() => toggleTag(tag)}
-                                className={`px-3 py-1 rounded-md text-sm font-medium shadow-sm transition-colors border border-zinc-700 ${
-                                  active
-                                    ? "bg-green-600 text-white hover:bg-green-700"
-                                    : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700/40"
-                                }`}
-                              >
-                                {tag}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              <div className="mt-3 text-xs text-zinc-400">
-                Selected: {Array.from(selectedTags).join(", ") || "none"}
-              </div>
-            </section>
-
-            <section>
-              <h3 className="text-sm font-medium text-zinc-200 mb-3">Difficulty & number of questions</h3>
-
-              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-6">
-                <div className="flex items-center gap-3 flex-wrap">
-                  {difficulties.map(d => {
-                    const active = selectedDifficulties.includes(d)
-                    return (
-                      <button
-                        key={d}
-                        onClick={() => toggleDifficulty(d)}
-                        className={`px-4 py-2 rounded-md text-sm font-medium border border-zinc-700 ${
-                          active
-                            ? "bg-green-600 text-white hover:bg-green-700"
-                            : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700/40"
-                        }`}
-                      >
-                        {d}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <div className="mt-3 sm:mt-0 flex items-center gap-3">
-                  <div className="text-xs text-zinc-400">Questions</div>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={numQuestions}
-                    onChange={e => handleNumQuestionsChange(e.target.value)}
-                    className="w-24 bg-zinc-800 border border-zinc-700 text-zinc-100 text-center"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-3 text-xs text-zinc-400">
-                Selected difficulties:{" "}
-                {selectedDifficulties
-                  .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-                  .join(", ") || "none"}{" "}
-                • Questions: {numQuestions}
-              </div>
-
-            </section>
-
-            <section>
-              <h3 className="text-sm font-medium text-zinc-200 mb-3">Invite a friend</h3>
-              <div className="flex gap-3">
-                <Input
-                  value={friendInput}
-                  onChange={e => setFriendInput(e.target.value)}
-                  placeholder="friend's username or email"
-                  className="flex-1 bg-zinc-800 border border-zinc-700"
-                />
-                <Button className="bg-green-600 hover:bg-green-700" onClick={addFriend}>
-                  Invite
-                </Button>
-              </div>
-
-              {invitedFriends.length > 0 && (
-                <ul className="mt-3 space-y-2">
-                  {invitedFriends.map(f => (
-                    <li
-                      key={f}
-                      className="flex items-center justify-between bg-zinc-800 p-3 rounded-md border border-zinc-700"
-                    >
-                      <div className="text-sm text-zinc-100">{f}</div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700"
-                          onClick={() => alert(`Sent invite to ${f}`)}
-                        >
-                          Resend
-                        </Button>
-                        <Button size="sm" variant="secondary" onClick={() => removeFriend(f)}>
-                          Remove
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+            <Button
+              onClick={createFriendlyRoom}
+              disabled={!selectedProblem || loading}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating Room...
+                </>
+              ) : (
+                "Create Room"
               )}
-            </section>
-
-            <section className="flex items-center justify-between">
-              <div>
-                <div className="text-sm text-zinc-400">Ready to start</div>
-                <div className="text-lg font-semibold text-zinc-100">
-                  {selectedDuration} min • {Array.from(selectedTags).join(", ") || "Random"}
-                </div>
-                <div className="text-sm text-zinc-400">
-                  Difficulties:{" "}
-                  {selectedDifficulties
-                    .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-                    .join(", ")}{" "}
-                  • Questions: {numQuestions}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Button
-                  className="bg-zinc-800 border border-zinc-700 p-3 shadow-sm"
-                  onClick={() => alert("Match lobby created (preview)")}
-                >
-                  Create lobby
-                </Button>
-                <Button
-                  className="bg-green-600 hover:bg-green-700 p-3 shadow-sm"
-                  onClick={() => alert("Match started (preview)")}
-                >
-                  Start match
-                </Button>
-              </div>
-            </section>
-          </CardContent>
-        </Card>
+            </Button>
+          </Card>
+        </div>
       </div>
-    </div>
-  )
+    );
+  }
+
+
+  if (mode === "friendly-join") {
+    return (
+      <div className="min-h-screen bg-neutral-950 text-white">
+        <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-neutral-950 to-neutral-950 pointer-events-none" />
+
+        <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <Button
+            variant="ghost"
+            onClick={() => setMode("select")}
+            className="text-neutral-400 hover:text-white mb-8"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+
+          <h1 className="text-3xl font-bold mb-6 text-white">Join Friendly Room</h1>
+
+          <Card className="bg-neutral-900/50 border-neutral-800 p-6 space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-3">
+                Enter Room ID
+              </label>
+              <Input
+                type="number"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                placeholder="e.g., 123"
+                className="w-full bg-neutral-800 border border-neutral-700 text-white text-lg px-4 py-3"
+              />
+              <p className="text-sm text-neutral-500 mt-2">
+                Get the Room ID from your friend who created the room
+              </p>
+            </div>
+
+            <Button
+              onClick={joinFriendlyRoom}
+              disabled={!roomId || loading}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Joining...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Join Room
+                </>
+              )}
+            </Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+
+  if (mode === "lobby" && currentBattle) {
+    const participants = currentBattle.participants || [];
+    const canStart = participants.length >= 2;
+    const userId = participants.find((p) => p.user)?.user?.id;
+    const isFriendly = currentBattle.mode === "FRIEND";
+
+    return (
+      <div className="min-h-screen bg-neutral-950 text-white">
+        <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-neutral-950 to-neutral-950 pointer-events-none" />
+
+        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="mb-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full text-emerald-400 text-sm font-medium mb-4">
+              {isFriendly && (
+                <>
+                  <span>Room ID: {currentBattle.id}</span>
+                  <span className="text-neutral-500">•</span>
+                </>
+              )}
+              <span>{currentBattle.mode}</span>
+            </div>
+            <h1 className="text-3xl font-bold text-white mb-2">
+              {currentBattle.problem?.title || "Battle Lobby"}
+            </h1>
+            <div className="flex items-center gap-4 text-neutral-400">
+              <span className={getDifficultyColor(currentBattle.problem?.difficulty)}>
+                {currentBattle.problem?.difficulty}
+              </span>
+              <span>•</span>
+              <span>{Math.floor(currentBattle.duration / 60)} minutes</span>
+            </div>
+          </div>
+
+          {isFriendly && (
+            <Card className="bg-emerald-500/10 border-emerald-500/30 p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <UserPlus className="w-5 h-5 text-emerald-400 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-emerald-400 mb-1">
+                    Share Room ID with your friend
+                  </p>
+                  <p className="text-xs text-neutral-400">
+                    They can join by entering Room ID: <span className="font-mono text-white">{currentBattle.id}</span>
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          <Card className="bg-neutral-900/50 border-neutral-800 p-6 mb-6">
+            <h2 className="text-lg font-bold mb-4 text-white">
+              Participants ({participants.length}/2)
+            </h2>
+
+            <div className="grid grid-cols-2 gap-4">
+              {[0, 1].map((index) => {
+                const participant = participants[index];
+                return (
+                  <div
+                    key={index}
+                    className={`p-6 rounded-lg border-2 transition ${participant
+                      ? "bg-emerald-500/10 border-emerald-500/30"
+                      : "bg-neutral-800/50 border-neutral-700 border-dashed"
+                      }`}
+                  >
+                    {participant ? (
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-12 h-12 border-2 border-neutral-700">
+                          <AvatarImage src={participant.user?.avatar} />
+                          <AvatarFallback className="bg-neutral-800 text-white">
+                            {participant.user?.username?.[0]?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium text-white">
+                            {participant.user?.username}
+                            {participant.userId === userId && (
+                              <span className="text-xs text-emerald-500 ml-2">(You)</span>
+                            )}
+                          </div>
+                          <div className="text-sm text-neutral-400">Ready</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4">
+                        <Users className="w-8 h-8 text-neutral-600 mx-auto mb-2" />
+                        <div className="text-sm text-neutral-500">Waiting...</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+
+          <div className="flex items-center justify-between">
+            <Button
+              onClick={leaveBattle}
+              variant="outline"
+              className="border-neutral-700 hover:border-red-500/50 hover:bg-red-500/10 text-neutral-300 hover:text-red-400"
+            >
+              Leave Battle
+            </Button>
+
+            <Button
+              onClick={startBattle}
+              disabled={!canStart || loading}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white px-8"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Starting...
+                </>
+              ) : !canStart ? (
+                "Waiting for players..."
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 mr-2" />
+                  Start Battle
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }

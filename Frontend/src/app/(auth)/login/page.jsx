@@ -7,7 +7,7 @@ import LoginForm from "@/components/auth/LoginForm";
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white px-4">
-      {/* Background gradient */}
+
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-neutral-950 to-neutral-950 pointer-events-none" />
 
       <Card className="relative z-10 w-full max-w-md bg-neutral-900/50 border-neutral-800 shadow-xl rounded-2xl backdrop-blur-sm">

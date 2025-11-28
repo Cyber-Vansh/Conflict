@@ -1,13 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
+import {
+  Play,
+  Code2,
+  Terminal,
+  Clock,
+  Cpu,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  ArrowLeft,
+  Loader2
+} from "lucide-react";
 
 export default function Compiler() {
-  const [code, setCode] = useState("print(\"Hello, World!\")");
+  const router = useRouter();
+  const [code, setCode] = useState("print('Hello, World!')");
   const [language, setLanguage] = useState(71);
   const [stdin, setStdin] = useState("");
   const [expectedOutput, setExpectedOutput] = useState("");
@@ -31,18 +45,18 @@ export default function Compiler() {
   ];
 
   const defaultCodeSnippets = {
-    54: `#include <stdio.h>\n\nint main() {\n    printf("Hello, World!\\\\n");\n    return 0;\n}`,
-    55: `#include <iostream>\nusing namespace std;\n\nint main() {\n    cout << "Hello, World!" << endl;\n    return 0;\n}`,
-    71: `print('Hello, World!')`,
-    62: `public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n    }\n}`,
-    63: `console.log("Hello, World!");`,
-    68: `<?php\necho "Hello, World!\\\\n";\n?>`,
-    72: `puts "Hello, World!"`,
-    60: `package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hello, World!")\n}`,
-    51: `using System;\n\nclass Program {\n    static void Main() {\n        Console.WriteLine("Hello, World!");\n    }\n}`,
-    83: `import Foundation\n\nprint("Hello, World!")`,
-    78: `fun main() {\n    println("Hello, World!")\n}`,
-    73: `fn main() {\n    println!("Hello, World!");\n}`,
+    54: '#include <stdio.h>\\n\\nint main() {\\n    printf("Hello, World!\\\\n");\\n    return 0;\\n}',
+    55: '#include <iostream>\\nusing namespace std;\\n\\nint main() {\\n    cout << "Hello, World!" << endl;\\n    return 0;\\n}',
+    71: "print('Hello, World!')",
+    62: 'public class Main {\\n    public static void main(String[] args) {\\n        System.out.println("Hello, World!");\\n    }\\n}',
+    63: 'console.log("Hello, World!");',
+    68: '<?php\\necho "Hello, World!\\\\n";\\n?>',
+    72: 'puts "Hello, World!"',
+    60: 'package main\\n\\nimport "fmt"\\n\\nfunc main() {\\n    fmt.Println("Hello, World!")\\n}',
+    51: 'using System;\\n\\nclass Program {\\n    static void Main() {\\n        Console.WriteLine("Hello, World!");\\n    }\\n}',
+    83: 'import Foundation\\n\\nprint("Hello, World!")',
+    78: 'fun main() {\\n    println("Hello, World!")\\n}',
+    73: 'fn main() {\\n    println!("Hello, World!");\\n}',
   };
 
   const handleLanguageChange = (newLangId) => {
@@ -105,25 +119,36 @@ export default function Compiler() {
 
   const normalize = (s = "") => {
     return s
-      .replace(/\r/g, "")
-      .split("\n")
-      .map((l) => l.replace(/[ \t]+$/g, ""))
-      .join("\n")
+      .replace(/\\r/g, "")
+      .split("\\n")
+      .map((l) => l.replace(/[ \\t]+$/g, ""))
+      .join("\\n")
       .trim();
   };
 
   const getStatusColor = (statusId) => {
     switch (statusId) {
       case 3:
-        return "text-green-500";
+        return "text-emerald-500";
       case 4:
         return "text-red-500";
       case 5:
-        return "text-yellow-400";
+        return "text-yellow-500";
       case 6:
-        return "text-yellow-400";
+        return "text-yellow-500";
       default:
-        return "text-yellow-400";
+        return "text-neutral-400";
+    }
+  };
+
+  const getStatusIcon = (statusId) => {
+    switch (statusId) {
+      case 3:
+        return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
+      case 4:
+        return <XCircle className="w-5 h-5 text-red-500" />;
+      default:
+        return <AlertCircle className="w-5 h-5 text-yellow-500" />;
     }
   };
 
@@ -136,35 +161,60 @@ export default function Compiler() {
     const normalizedExpected = normalize(rawExpected);
 
     const serverStatusId = result.status?.id;
-    let displayStatus = result.status || { id: 0, description: "Unknown" };
+    let status = result.status || { id: 0, description: "Unknown" };
 
     if (serverStatusId && [5, 6].includes(serverStatusId)) {
-      displayStatus = result.status;
+      status = result.status;
     } else if (rawExpected.trim() !== "") {
       if (normalizedStdout !== normalizedExpected) {
-        displayStatus = { id: 4, description: "Wrong Answer" };
+        status = { id: 4, description: "Wrong Answer" };
       } else {
-        displayStatus = { id: 3, description: "Accepted" };
+        status = { id: 3, description: "Accepted" };
       }
     }
 
-    return displayStatus;
+    return status;
   };
 
   const displayStatus = getDisplayStatus();
 
   return (
-    <div className="min-h-screen bg-zinc-900 text-white">
-      <div className="max-w-6xl mx-auto px-4 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-4">
+    <div className="min-h-screen bg-neutral-950 text-white">
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-neutral-950 to-neutral-950 pointer-events-none" />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <Button
+            variant="ghost"
+            onClick={() => router.push("/")}
+            className="text-neutral-400 hover:text-white mb-4"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Home
+          </Button>
+
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+              <Code2 className="w-6 h-6 text-emerald-500" />
+            </div>
             <div>
-              <Label className="mb-2 text-xl font-semibold">Language</Label>
+              <h1 className="text-3xl font-bold text-white">Code Compiler</h1>
+              <p className="text-neutral-400">Write, test, and execute your code</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <Card className="bg-neutral-900/50 border-neutral-800 p-4">
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Programming Language
+              </label>
               <Select value={language.toString()} onValueChange={handleLanguageChange}>
-                <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 focus:ring-2 focus:ring-green-500">
+                <SelectTrigger className="w-full bg-neutral-800 border-neutral-700 text-white">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
                   {languages.map((lang) => (
                     <SelectItem key={lang.id} value={lang.id.toString()}>
                       {lang.name}
@@ -172,119 +222,152 @@ export default function Compiler() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </Card>
 
-            <div>
-              <Label className="mb-2 text-xl font-semibold">Source Code</Label>
+            <Card className="bg-neutral-900/50 border-neutral-800 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-neutral-300">Source Code</label>
+                <Code2 className="w-4 h-4 text-neutral-500" />
+              </div>
               <Textarea
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                className="w-full h-[370px] bg-zinc-900 border-zinc-800 font-mono text-sm focus:ring-2 focus:ring-green-500 resize-none"
+                className="w-full h-[400px] bg-neutral-800 border-neutral-700 font-mono text-sm text-white resize-none focus:border-emerald-500"
                 placeholder="Write your code here..."
               />
-            </div>
+            </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="mb-2 text-xl font-semibold">Standard Input</Label>
+              <Card className="bg-neutral-900/50 border-neutral-800 p-4">
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  Standard Input
+                </label>
                 <Textarea
                   value={stdin}
                   onChange={(e) => setStdin(e.target.value)}
-                  className="w-full h-[150px] bg-zinc-900 border-zinc-800 font-mono text-sm focus:ring-2 focus:ring-green-500 resize-none"
+                  className="w-full h-[120px] bg-neutral-800 border-neutral-700 font-mono text-sm text-white resize-none focus:border-emerald-500"
                   placeholder="Input for your program..."
                 />
-              </div>
-              <div>
-                <Label className="mb-2 text-xl font-semibold">Expected Output (Optional)</Label>
+              </Card>
+
+              <Card className="bg-neutral-900/50 border-neutral-800 p-4">
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  Expected Output <span className="text-neutral-500">(Optional)</span>
+                </label>
                 <Textarea
                   value={expectedOutput}
                   onChange={(e) => setExpectedOutput(e.target.value)}
-                  className="w-full h-[150px] bg-zinc-900 border-zinc-800 font-mono text-sm focus:ring-2 focus:ring-green-500 resize-none"
-                  placeholder="Expected output for validation..."
+                  className="w-full h-[120px] bg-neutral-800 border-neutral-700 font-mono text-sm text-white resize-none focus:border-emerald-500"
+                  placeholder="Expected output..."
                 />
-              </div>
+              </Card>
             </div>
 
             <Button
               onClick={handleRunCode}
               disabled={loading}
-              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 font-semibold py-3 px-6"
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3"
             >
-              {loading ? "Running..." : "Run Code"}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Executing...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Run Code
+                </>
+              )}
             </Button>
 
             {error && (
-              <div className="p-3 bg-red-900 border border-red-700 rounded-md">
-                <p className="text-red-200">{error}</p>
-              </div>
+              <Card className="bg-red-500/10 border-red-500/30 p-4">
+                <div className="flex items-start gap-3">
+                  <XCircle className="w-5 h-5 text-red-400 mt-0.5" />
+                  <p className="text-red-400 text-sm">{error}</p>
+                </div>
+              </Card>
             )}
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Execution</h2>
+            <div className="flex items-center gap-2 mb-2">
+              <Terminal className="w-5 h-5 text-emerald-500" />
+              <h2 className="text-xl font-bold text-white">Execution Results</h2>
+            </div>
 
             {result ? (
               <div className="space-y-4">
-                <div className="p-4 bg-zinc-900 rounded-md border border-zinc-800">
-                  <h3 className="font-medium mb-2">Verdict</h3>
-                  <p className={`font-semibold ${getStatusColor(displayStatus?.id)}`}>
-                    {displayStatus?.description}
-                  </p>
+                <Card className="bg-neutral-900/50 border-neutral-800 p-4">
+                  <h3 className="text-sm font-medium text-neutral-400 mb-3">Verdict</h3>
+                  <div className="flex items-center gap-3">
+                    {getStatusIcon(displayStatus?.id)}
+                    <p className={`text-lg font-semibold ${getStatusColor(displayStatus?.id)}`}>
+                      {displayStatus?.description}
+                    </p>
+                  </div>
+                </Card>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <Card className="bg-neutral-900/50 border-neutral-800 p-4 text-center">
+                    <Clock className="w-5 h-5 text-emerald-500 mx-auto mb-2" />
+                    <p className="text-xs text-neutral-400 mb-1">Time</p>
+                    <p className="font-semibold text-white">{result.time || "0.00"}s</p>
+                  </Card>
+                  <Card className="bg-neutral-900/50 border-neutral-800 p-4 text-center">
+                    <Cpu className="w-5 h-5 text-emerald-500 mx-auto mb-2" />
+                    <p className="text-xs text-neutral-400 mb-1">Memory</p>
+                    <p className="font-semibold text-white">{result.memory || "0"} KB</p>
+                  </Card>
+                  <Card className="bg-neutral-900/50 border-neutral-800 p-4 text-center">
+                    <Terminal className="w-5 h-5 text-emerald-500 mx-auto mb-2" />
+                    <p className="text-xs text-neutral-400 mb-1">Status</p>
+                    <p className="font-semibold text-white text-xs">{result.status?.description || "N/A"}</p>
+                  </Card>
                 </div>
 
-                <div className="p-4 bg-zinc-900 rounded-md border border-zinc-800">
-                  <h3 className="font-medium mb-2">Program output</h3>
-                  <pre className="whitespace-pre-wrap font-mono text-sm bg-black p-3 rounded-md text-white max-h-[200px] overflow-y-auto">
+                <Card className="bg-neutral-900/50 border-neutral-800 p-4">
+                  <h3 className="text-sm font-medium text-neutral-400 mb-3">Program Output</h3>
+                  <pre className="whitespace-pre-wrap font-mono text-sm bg-neutral-800 p-4 rounded-lg text-emerald-400 max-h-[200px] overflow-y-auto border border-neutral-700">
                     {result.stdout || "(No output)"}
                   </pre>
-                </div>
+                </Card>
 
                 {expectedOutput.trim() !== "" && (
-                  <div className="p-4 bg-zinc-900 rounded-md border border-zinc-800">
-                    <h3 className="font-medium mb-2">Expected output</h3>
-                    <pre className="whitespace-pre-wrap font-mono text-sm bg-black p-3 rounded-md text-white max-h-[200px] overflow-y-auto">
+                  <Card className="bg-neutral-900/50 border-neutral-800 p-4">
+                    <h3 className="text-sm font-medium text-neutral-400 mb-3">Expected Output</h3>
+                    <pre className="whitespace-pre-wrap font-mono text-sm bg-neutral-800 p-4 rounded-lg text-neutral-300 max-h-[200px] overflow-y-auto border border-neutral-700">
                       {expectedOutput}
                     </pre>
-                  </div>
+                  </Card>
                 )}
 
                 {result.stderr && (
-                  <div className="p-4 bg-red-900 rounded-md">
-                    <h3 className="font-medium mb-2 text-red-300">Runtime error</h3>
-                    <pre className="whitespace-pre-wrap font-mono text-sm bg-red-900 p-3 rounded-md text-red-200 max-h-[200px] overflow-y-auto">
+                  <Card className="bg-red-500/10 border-red-500/30 p-4">
+                    <h3 className="text-sm font-medium text-red-400 mb-3">Runtime Error</h3>
+                    <pre className="whitespace-pre-wrap font-mono text-sm bg-red-900/20 p-4 rounded-lg text-red-300 max-h-[200px] overflow-y-auto border border-red-500/30">
                       {result.stderr}
                     </pre>
-                  </div>
+                  </Card>
                 )}
 
                 {result.compile_output && (
-                  <div className="p-4 bg-yellow-900 rounded-md">
-                    <h3 className="font-medium mb-2 text-yellow-300">Compilation output</h3>
-                    <pre className="whitespace-pre-wrap font-mono text-sm bg-yellow-900 p-3 rounded-md text-yellow-200 max-h-[200px] overflow-y-auto">
+                  <Card className="bg-yellow-500/10 border-yellow-500/30 p-4">
+                    <h3 className="text-sm font-medium text-yellow-400 mb-3">Compilation Output</h3>
+                    <pre className="whitespace-pre-wrap font-mono text-sm bg-yellow-900/20 p-4 rounded-lg text-yellow-300 max-h-[200px] overflow-y-auto border border-yellow-500/30">
                       {result.compile_output}
                     </pre>
-                  </div>
+                  </Card>
                 )}
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="p-3 bg-zinc-900 rounded-md text-center border border-zinc-800">
-                    <p className="text-sm text-zinc-400">Time</p>
-                    <p className="font-semibold">{result.time || "0.00"}s</p>
-                  </div>
-                  <div className="p-3 bg-zinc-900 rounded-md text-center border border-zinc-800">
-                    <p className="text-sm text-zinc-400">Memory</p>
-                    <p className="font-semibold">{result.memory || "0"} KB</p>
-                  </div>
-                  <div className="p-3 bg-zinc-900 rounded-md text-center border border-zinc-800">
-                    <p className="text-sm text-zinc-400">Server status</p>
-                    <p className="font-semibold">{result.status?.description || "N/A"}</p>
-                  </div>
-                </div>
               </div>
             ) : (
-              <div className="p-8 bg-zinc-900 rounded-md text-center text-zinc-400">
-                {loading ? "Executing your program..." : "Run your code to see results here"}
-              </div>
+              <Card className="bg-neutral-900/50 border-neutral-800 p-12 text-center">
+                <Terminal className="w-16 h-16 text-neutral-700 mx-auto mb-4" />
+                <p className="text-neutral-500">
+                  {loading ? "Executing your program..." : "Run your code to see results here"}
+                </p>
+              </Card>
             )}
           </div>
         </div>

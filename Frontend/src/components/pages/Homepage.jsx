@@ -79,18 +79,17 @@ export default function Homepage() {
     ? Math.round((userData.wins / userData.totalBattles) * 100)
     : 0;
 
-  // Map battle types for display
   const getBattleTypeDisplay = (type) => {
     return type === 'DUALS' ? 'Duels' : type === 'HAVOC' ? 'Havoc' : type;
   };
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white pb-0">
-      {/* Ambient background */}
+
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-neutral-950 to-neutral-950 pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Top Bar */}
+
         <header className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2.5">
@@ -115,7 +114,7 @@ export default function Homepage() {
           </div>
         </header>
 
-        {/* Hero Stats Section */}
+
         <section className="mb-10">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card className="bg-neutral-900/50 border-neutral-800 p-6 hover:border-emerald-500/50 transition group">
@@ -158,11 +157,11 @@ export default function Homepage() {
           </div>
         </section>
 
-        {/* Main Grid */}
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column - Battle Modes */}
+
           <div className="lg:col-span-8 space-y-6">
-            {/* Battle Cards */}
+
             <div>
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
                 <Zap className="w-5 h-5 text-emerald-500" />
@@ -170,7 +169,7 @@ export default function Homepage() {
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Duels */}
+
                 <Link href="/duelsmatchup">
                   <Card className="group bg-neutral-900/50 border-neutral-800 hover:border-emerald-500 p-6 cursor-pointer transition-all hover:bg-neutral-900">
                     <div className="flex items-start justify-between mb-4">
@@ -201,7 +200,7 @@ export default function Homepage() {
                   </Card>
                 </Link>
 
-                {/* Havoc */}
+
                 <Link href="/havocmatchup">
                   <Card className="group bg-neutral-900/50 border-neutral-800 hover:border-emerald-500 p-6 cursor-pointer transition-all hover:bg-neutral-900">
                     <div className="flex items-start justify-between mb-4">
@@ -234,7 +233,7 @@ export default function Homepage() {
               </div>
             </div>
 
-            {/* Recent Battles */}
+
             <div>
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
                 <Activity className="w-5 h-5 text-emerald-500" />
@@ -251,7 +250,7 @@ export default function Homepage() {
                             }`} />
                           <div>
                             <div className="font-medium text-white">
-                              {getBattleTypeDisplay(battle.battle.type)} • {battle.battle.mode}
+                              {battle.battle.type} • {battle.battle.mode}
                             </div>
                             <div className="text-xs text-neutral-400">
                               Rank #{battle.rank} • {battle.score} points
@@ -280,9 +279,9 @@ export default function Homepage() {
             </div>
           </div>
 
-          {/* Right Sidebar */}
+
           <aside className="lg:col-span-4 space-y-6">
-            {/* Leaderboard */}
+
             <div>
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
                 <Trophy className="w-5 h-5 text-yellow-500" />
@@ -290,7 +289,7 @@ export default function Homepage() {
               </h2>
 
               <Card className="bg-neutral-900/50 border-neutral-800">
-                {/* Toggle */}
+
                 <div className="p-4 border-b border-neutral-800">
                   <div className="flex gap-2 p-1 bg-neutral-800/50 rounded-lg">
                     <button
@@ -314,7 +313,7 @@ export default function Homepage() {
                   </div>
                 </div>
 
-                {/* List */}
+
                 <div className="p-4 space-y-3">
                   {leaderboard[mode].slice(0, 5).map((player) => (
                     <div
