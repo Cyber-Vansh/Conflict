@@ -49,8 +49,19 @@ const runCode = async (req, res) => {
       time: result.time,
     });
   } catch (error) {
-    console.error(error.response?.data || error.message);
-    res.status(500).json({ error: "Error running code" });
+    console.error("Error in /run endpoint:");
+    console.error("Message:", error.message);
+    console.error("Response data:", error.response?.data);
+    console.error("Stack:", error.stack);
+
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      console.error("Judge0 Authentication Error. Check RAPIDAPI_KEY and RAPIDAPI_HOST.");
+    }
+
+    res.status(500).json({
+      error: "Error running code",
+      details: error.response?.data || error.message
+    });
   }
 };
 
