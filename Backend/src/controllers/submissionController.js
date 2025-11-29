@@ -20,7 +20,7 @@ const submitCode = async (req, res) => {
             where: { id: parseInt(problemId) },
             include: {
                 testCases: {
-                    orderBy: { orderIndex: "asc" },
+                    orderBy: { id: "asc" },
                 },
             },
         });

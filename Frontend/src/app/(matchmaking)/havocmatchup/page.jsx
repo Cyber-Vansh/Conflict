@@ -32,8 +32,9 @@ export default function HavocMatchupPage() {
 
   const [roomId, setRoomId] = useState("");
   const [selectedProblem, setSelectedProblem] = useState(null);
-  const [duration, setDuration] = useState(900); // 15 min default
+  const [duration, setDuration] = useState(900);
   const [maxPlayers, setMaxPlayers] = useState(10);
+  const [countdown, setCountdown] = useState(30);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -50,14 +51,57 @@ export default function HavocMatchupPage() {
     }
   }, [mode, currentBattle]);
 
+  useEffect(() => {
+    if (mode === "lobby" && currentBattle && currentBattle.status === "WAITING") {
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            const participantCount = currentBattle.participants?.length || 0;
+            if (participantCount >= 2) {
+              startBattle();
+              return 0;
+            } else {
+              return 30;
+            }
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    } else {
+      setCountdown(30);
+    }
+  }, [mode, currentBattle]);
+
   const pollBattleStatus = async () => {
     if (!currentBattle) return;
     try {
       const response = await api.get(`/battles/${currentBattle.id}`);
       const updatedBattle = response.data.data;
+
+      const userStr = localStorage.getItem("user");
+      const userId = userStr ? JSON.parse(userStr)?.id : null;
+      const isParticipant = !userId || updatedBattle.participants?.some(p => p.userId === userId || p.user?.id === userId);
+
+      if (!isParticipant) {
+        console.log("User ID:", userId, "Participants:", updatedBattle.participants);
+        alert("You are not a participant in this battle");
+        setMode("select");
+        setCurrentBattle(null);
+        return;
+      }
+
       setCurrentBattle(updatedBattle);
+
       if (updatedBattle.status === "ACTIVE") {
         router.push(`/compiler?battleId=${updatedBattle.id}`);
+      } else if (updatedBattle.status === "WAITING") {
+        const participantCount = updatedBattle.participants?.length || 0;
+        const maxPlayers = updatedBattle.maxPlayers || 10;
+
+        if (participantCount >= maxPlayers) {
+          await startBattle();
+        }
       }
     } catch (error) {
       console.error("Error polling battle:", error);
@@ -68,8 +112,8 @@ export default function HavocMatchupPage() {
     try {
       setLoading(true);
       const response = await api.get("/problems?isPublic=true&limit=50");
-      const problemsData = Array.isArray(response.data.data) ? response.data.data : [];
-      setProblems(problemsData);
+      const problemsData = response.data?.data?.problems || response.data?.problems || [];
+      setProblems(Array.isArray(problemsData) ? problemsData : []);
       if (problemsData.length > 0) {
         setSelectedProblem(problemsData[0].id);
       }
@@ -89,19 +133,23 @@ export default function HavocMatchupPage() {
       const response = await api.get("/battles?type=HAVOC&status=WAITING&mode=RANKED");
       const availableBattles = response.data.data || [];
 
-      if (availableBattles.length > 0) {
-        const battle = availableBattles[0];
+      const availableBattle = availableBattles.find(
+        battle => (battle.participants?.length || 0) < (battle.maxPlayers || 10)
+      );
+
+      if (availableBattle) {
         await api.post(
-          `/battles/${battle.id}/join`,
+          `/battles/${availableBattle.id}/join`,
           {},
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        const battleResponse = await api.get(`/battles/${battle.id}`);
-        setCurrentBattle(battleResponse.data.data);
+
+        const updatedBattleResponse = await api.get(`/battles/${availableBattle.id}`);
+        setCurrentBattle(updatedBattleResponse.data.data);
         setMode("lobby");
       } else {
         const problemsResponse = await api.get("/problems?isPublic=true&limit=50");
-        const problemsData = problemsResponse.data.data || [];
+        const problemsData = problemsResponse.data?.data?.problems || problemsResponse.data?.problems || [];
         if (problemsData.length === 0) {
           alert("No problems available");
           setLoading(false);
@@ -570,6 +618,22 @@ export default function HavocMatchupPage() {
             </Card>
           )}
 
+          <Card className="bg-blue-500/10 border-blue-500/30 p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Clock className="w-6 h-6 text-blue-400" />
+                <div>
+                  <p className="text-lg font-bold text-white">
+                    Battle starts in: {countdown}s
+                  </p>
+                  <p className="text-sm text-neutral-400">
+                    Waiting for players ({participants.length}/{maxPlayers}) • Minimum 2 required
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           <Card className="bg-neutral-900/50 border-neutral-800 p-6 mb-6">
             <h2 className="text-lg font-bold mb-4 text-white">
               Participants ({participants.length}/{maxPlayers})
@@ -619,26 +683,6 @@ export default function HavocMatchupPage() {
               className="border-neutral-700 hover:border-red-500/50 hover:bg-red-500/10 text-neutral-300 hover:text-red-400"
             >
               Leave Battle
-            </Button>
-
-            <Button
-              onClick={startBattle}
-              disabled={!canStart || loading}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white px-8"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Starting...
-                </>
-              ) : !canStart ? (
-                "Need 2+ players"
-              ) : (
-                <>
-                  <Zap className="w-4 h-4 mr-2" />
-                  Start Battle
-                </>
-              )}
             </Button>
           </div>
         </div>

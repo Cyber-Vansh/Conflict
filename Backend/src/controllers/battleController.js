@@ -102,7 +102,7 @@ const getBattleById = async (req, res) => {
                     include: {
                         testCases: {
                             where: { isSample: true },
-                            orderBy: { orderIndex: "asc" },
+                            orderBy: { id: "asc" },
                         },
                     },
                 },

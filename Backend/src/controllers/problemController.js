@@ -60,7 +60,7 @@ const getProblemById = async (req, res) => {
             include: {
                 testCases: {
                     where: includeHidden === "true" ? {} : { isSample: true },
-                    orderBy: { orderIndex: "asc" },
+                    orderBy: { id: "asc" },
                     select: {
                         id: true,
                         input: true,
@@ -106,7 +106,7 @@ const getRandomProblem = async (req, res) => {
             include: {
                 testCases: {
                     where: { isSample: true },
-                    orderBy: { orderIndex: "asc" },
+                    orderBy: { id: "asc" },
                 },
                 author: {
                     select: { username: true },
@@ -159,7 +159,7 @@ const createProblem = async (req, res) => {
                         output: tc.output,
                         isSample: tc.isSample || false,
                         points: tc.points || 1,
-                        orderIndex: index,
+
                     })),
                 },
             },
@@ -227,7 +227,6 @@ const updateProblem = async (req, res) => {
                     output: tc.output,
                     isSample: tc.isSample || false,
                     points: tc.points || 1,
-                    orderIndex: index,
                 })),
             };
         }

@@ -54,9 +54,25 @@ export default function DuelsMatchupPage() {
     try {
       const response = await api.get(`/battles/${currentBattle.id}`);
       const updatedBattle = response.data.data;
+
+      const userStr = localStorage.getItem("user");
+      const userId = userStr ? JSON.parse(userStr)?.id : null;
+      const isParticipant = !userId || updatedBattle.participants?.some(p => p.userId === userId || p.user?.id === userId);
+
+      if (!isParticipant) {
+        console.log("User ID:", userId, "Participants:", updatedBattle.participants);
+        alert("You are not a participant in this battle");
+        setMode("select");
+        setCurrentBattle(null);
+        return;
+      }
+
       setCurrentBattle(updatedBattle);
+
       if (updatedBattle.status === "ACTIVE") {
         router.push(`/compiler?battleId=${updatedBattle.id}`);
+      } else if (updatedBattle.status === "WAITING" && updatedBattle.type === "DUALS" && updatedBattle.participants?.length >= 2) {
+        await startBattle();
       }
     } catch (error) {
       console.error("Error polling battle:", error);
@@ -67,8 +83,8 @@ export default function DuelsMatchupPage() {
     try {
       setLoading(true);
       const response = await api.get("/problems?isPublic=true&limit=50");
-      const problemsData = Array.isArray(response.data.data) ? response.data.data : [];
-      setProblems(problemsData);
+      const problemsData = response.data?.data?.problems || response.data?.problems || [];
+      setProblems(Array.isArray(problemsData) ? problemsData : []);
       if (problemsData.length > 0) {
         setSelectedProblem(problemsData[0].id);
       }
@@ -90,28 +106,42 @@ export default function DuelsMatchupPage() {
       const response = await api.get("/battles?type=DUALS&status=WAITING&mode=RANKED");
       const availableBattles = response.data.data || [];
 
-      if (availableBattles.length > 0) {
+      const availableBattle = availableBattles.find(
+        battle => (battle.participants?.length || 0) < (battle.maxPlayers || 2)
+      );
 
-        const battle = availableBattles[0];
+      if (availableBattle) {
         await api.post(
-          `/battles/${battle.id}/join`,
+          `/battles/${availableBattle.id}/join`,
           {},
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        const battleResponse = await api.get(`/battles/${battle.id}`);
-        setCurrentBattle(battleResponse.data.data);
+
+        const updatedBattleResponse = await api.get(`/battles/${availableBattle.id}`);
+        setCurrentBattle(updatedBattleResponse.data.data);
         setMode("lobby");
       } else {
 
         const problemsResponse = await api.get("/problems?isPublic=true&limit=50");
-        const problemsData = problemsResponse.data.data || [];
-        if (problemsData.length === 0) {
-          alert("No problems available");
+        console.log("Problems response:", problemsResponse.data);
+
+        const problemsData = problemsResponse.data?.data?.problems || problemsResponse.data?.problems || problemsResponse.data?.data || [];
+        console.log("Problems data:", problemsData);
+
+        if (!Array.isArray(problemsData) || problemsData.length === 0) {
+          alert("No problems available. Please add problems to the database first.");
           setLoading(false);
           return;
         }
 
         const randomProblem = problemsData[Math.floor(Math.random() * problemsData.length)];
+        console.log("Selected random problem:", randomProblem);
+
+        if (!randomProblem || !randomProblem.id) {
+          alert("Invalid problem data. Please check your database.");
+          setLoading(false);
+          return;
+        }
 
         const createResponse = await api.post(
           "/battles",
@@ -130,7 +160,10 @@ export default function DuelsMatchupPage() {
       }
     } catch (error) {
       console.error("Error finding match:", error);
-      alert(error.response?.data?.message || "Failed to find match");
+      console.error("Error response:", error.response?.data);
+      console.error("Error message:", error.message);
+      const errorMsg = error.response?.data?.message || error.message || "Failed to find match";
+      alert(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -609,26 +642,6 @@ export default function DuelsMatchupPage() {
               className="border-neutral-700 hover:border-red-500/50 hover:bg-red-500/10 text-neutral-300 hover:text-red-400"
             >
               Leave Battle
-            </Button>
-
-            <Button
-              onClick={startBattle}
-              disabled={!canStart || loading}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white px-8"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Starting...
-                </>
-              ) : !canStart ? (
-                "Waiting for players..."
-              ) : (
-                <>
-                  <Zap className="w-4 h-4 mr-2" />
-                  Start Battle
-                </>
-              )}
             </Button>
           </div>
         </div>
