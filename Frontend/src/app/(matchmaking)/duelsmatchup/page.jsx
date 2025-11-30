@@ -17,9 +17,22 @@ import {
   ArrowLeft,
   Loader2,
   Dice3,
-  UserPlus
+  UserPlus,
+  LogOut
 } from "lucide-react";
 import { getSocket, disconnectSocket } from "@/lib/socket";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function DuelsMatchupPage() {
   const router = useRouter();
@@ -35,36 +48,48 @@ export default function DuelsMatchupPage() {
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [duration, setDuration] = useState(600);
 
+  const isRedirecting = React.useRef(false);
+  const isStarting = React.useRef(false);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) router.push("/login");
   }, [router]);
 
-  useEffect(() => {
-    if (mode === "lobby" && currentBattle) {
-      const socket = getSocket();
-      socket.emit("join_battle", currentBattle.id);
+  const startBattle = async () => {
+    if (isStarting.current || isRedirecting.current) return;
+    isStarting.current = true;
 
-      socket.on("battle:update", (data) => {
-        console.log("Battle update:", data);
-        if (data.type === "player_joined") {
-          // Re-fetch battle to get full participant details
-          // Or manually update state if we trust the data
-          pollBattleStatus();
-        } else if (data.type === "started") {
-          router.push(`/compiler?battleId=${data.battleId}`);
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      await api.post(
+        `/battles/${currentBattle.id}/start`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (error) {
+      console.error("Error starting battle:", error);
+      const errorMsg = error.response?.data?.message || "";
+
+      console.log("Start battle error message:", errorMsg);
+
+      if (errorMsg.includes("Battle already started") || errorMsg.includes("completed")) {
+        if (!isRedirecting.current) {
+          isRedirecting.current = true;
+          console.log("Redirecting to battle:", currentBattle.id);
+          router.push(`/compiler?battleId=${currentBattle.id}`);
         }
-      });
-
-      return () => {
-        socket.emit("leave_battle", currentBattle.id);
-        socket.off("battle:update");
-      };
+      } else {
+        alert(errorMsg || "Failed to start battle");
+        isStarting.current = false; // Only reset if it wasn't a "started" error
+      }
+      setLoading(false);
     }
-  }, [mode, currentBattle]);
+  };
 
   const pollBattleStatus = async () => {
-    if (!currentBattle) return;
+    if (!currentBattle || isRedirecting.current) return;
     try {
       const response = await api.get(`/battles/${currentBattle.id}`);
       const updatedBattle = response.data.data;
@@ -84,7 +109,10 @@ export default function DuelsMatchupPage() {
       setCurrentBattle(updatedBattle);
 
       if (updatedBattle.status === "ACTIVE") {
-        router.push(`/compiler?battleId=${updatedBattle.id}`);
+        if (!isRedirecting.current) {
+          isRedirecting.current = true;
+          router.push(`/compiler?battleId=${updatedBattle.id}`);
+        }
       } else if (updatedBattle.status === "WAITING" && updatedBattle.type === "DUALS" && updatedBattle.participants?.length >= 2) {
         await startBattle();
       }
@@ -92,6 +120,37 @@ export default function DuelsMatchupPage() {
       console.error("Error polling battle:", error);
     }
   };
+
+  useEffect(() => {
+    if (mode === "lobby" && currentBattle) {
+      const socket = getSocket();
+      socket.emit("join_battle", currentBattle.id);
+
+      // Initial poll to check if we should already start
+      pollBattleStatus();
+
+      socket.on("battle:update", (data) => {
+        console.log("Battle update:", data);
+        if (data.type === "player_joined") {
+          // Re-fetch battle to get full participant details
+          // Or manually update state if we trust the data
+          pollBattleStatus();
+        } else if (data.type === "started") {
+          if (!isRedirecting.current) {
+            isRedirecting.current = true;
+            router.push(`/compiler?battleId=${data.battleId}`);
+          }
+        }
+      });
+
+      return () => {
+        socket.emit("leave_battle", currentBattle.id);
+        socket.off("battle:update");
+      };
+    }
+  }, [mode, currentBattle]);
+
+
 
   const fetchProblems = async () => {
     try {
@@ -247,21 +306,7 @@ export default function DuelsMatchupPage() {
     }
   };
 
-  const startBattle = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      await api.post(
-        `/battles/${currentBattle.id}/start`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-    } catch (error) {
-      console.error("Error starting battle:", error);
-      alert(error.response?.data?.message || "Failed to start battle");
-      setLoading(false);
-    }
-  };
+
 
   const leaveBattle = async () => {
     try {
@@ -655,7 +700,8 @@ export default function DuelsMatchupPage() {
               variant="outline"
               className="border-neutral-700 hover:border-red-500/50 hover:bg-red-500/10 text-neutral-300 hover:text-red-400"
             >
-              Leave Battle
+              <LogOut className="w-4 h-4 mr-2" />
+              Leave Lobby
             </Button>
           </div>
         </div>

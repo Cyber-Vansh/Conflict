@@ -27,13 +27,7 @@ export default function Home() {
 
   return (
     <div className="bg-neutral-950">
-      <section style={{ minHeight: "100vh" }}>
-        <Homepage />
-      </section>
-
-      <section style={{ minHeight: "100vh" }}>
-        <ProfilePage />
-      </section>
+      <Homepage />
     </div>
   )
 }

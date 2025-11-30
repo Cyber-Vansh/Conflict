@@ -18,7 +18,8 @@ import {
   Award,
   Activity,
   Medal,
-  Star
+  Star,
+  Code2
 } from "lucide-react";
 
 export default function Homepage() {
@@ -101,170 +102,193 @@ export default function Homepage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <Link href="/compiler">
-              <Button variant="outline" size="sm" className="border-neutral-700 hover:border-emerald-500/50 hover:bg-emerald-500/10 text-neutral-900 hover:!text-white bg-white">
-                <Target className="w-4 h-4 mr-2" />
-                Practice
+            <div className="flex items-center gap-2 px-4 py-2 bg-neutral-900 rounded-full border border-neutral-800">
+              <Crown className="w-4 h-4 text-yellow-500" />
+              <span className="font-bold text-white">
+                {(userData?.dualsCrowns || 0) + (userData?.havocCrowns || 0)}
+              </span>
+            </div>
+            <Link href="/playground">
+              <Button variant="outline" className="gap-2 bg-white text-black hover:bg-neutral-200 border-0">
+                <Code2 className="w-4 h-4" />
+                Playground
               </Button>
             </Link>
-            <Avatar className="w-10 h-10 border-2 border-neutral-800 cursor-pointer hover:border-emerald-500 transition">
-              <AvatarImage src={userData?.avatar} />
-              <AvatarFallback className="bg-neutral-800 text-white">{userData?.username?.[0]?.toUpperCase()}</AvatarFallback>
-            </Avatar>
+            <Link href="/profile">
+              <Avatar className="w-10 h-10 border-2 border-neutral-800 cursor-pointer hover:border-emerald-500 transition">
+                <AvatarImage src={userData?.avatar} />
+                <AvatarFallback className="bg-neutral-800 text-white">{userData?.username?.[0]?.toUpperCase()}</AvatarFallback>
+              </Avatar>
+            </Link>
           </div>
         </header>
 
 
-        <section className="mb-10">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card className="bg-neutral-900/50 border-neutral-800 p-6 hover:border-emerald-500/50 transition group">
-              <div className="flex items-center justify-between mb-3">
-                <Trophy className="w-8 h-8 text-emerald-500" />
-                <div className="text-xs text-neutral-400 uppercase tracking-wider font-medium">Total</div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-1">{userData?.totalBattles || 0}</div>
-              <div className="text-sm text-neutral-400">Battles Fought</div>
-            </Card>
-
-            <Card className="bg-neutral-900/50 border-neutral-800 p-6 hover:border-emerald-500/50 transition group">
-              <div className="flex items-center justify-between mb-3">
-                <Target className="w-8 h-8 text-emerald-500" />
-                <div className="text-xs text-neutral-400 uppercase tracking-wider font-medium">Rate</div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-1">{winRate}%</div>
-              <div className="text-sm text-neutral-400">Win Rate</div>
-            </Card>
-
-            <Card className="bg-neutral-900/50 border-neutral-800 p-6 hover:border-emerald-500/50 transition group">
-              <div className="flex items-center justify-between mb-3">
-                <Crown className="w-8 h-8 text-yellow-500" />
-                <div className="text-xs text-neutral-400 uppercase tracking-wider font-medium">Crowns</div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-1">
-                {(userData?.dualsCrowns || 0) + (userData?.havocCrowns || 0)}
-              </div>
-              <div className="text-sm text-neutral-400">Total Earned</div>
-            </Card>
-
-            <Card className="bg-neutral-900/50 border-neutral-800 p-6 hover:border-emerald-500/50 transition group">
-              <div className="flex items-center justify-between mb-3">
-                <Award className="w-8 h-8 text-emerald-500" />
-                <div className="text-xs text-neutral-400 uppercase tracking-wider font-medium">Wins</div>
-              </div>
-              <div className="text-3xl font-bold text-white mb-1">{userData?.wins || 0}</div>
-              <div className="text-sm text-neutral-400">Victories</div>
-            </Card>
-          </div>
-        </section>
 
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-          <div className="lg:col-span-8 space-y-6">
+        <div className="space-y-6">
 
-            <div>
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
-                <Zap className="w-5 h-5 text-emerald-500" />
-                Choose Your Battle
-              </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8">
+              <div>
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
+                  <Zap className="w-5 h-5 text-emerald-500" />
+                  Choose Your Battle
+                </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                <Link href="/duelsmatchup">
-                  <Card className="group bg-neutral-900/50 border-neutral-800 hover:border-emerald-500 p-6 cursor-pointer transition-all hover:bg-neutral-900">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 group-hover:bg-emerald-500/20 transition">
-                        <Swords className="w-7 h-7 text-emerald-500" />
-                      </div>
-                      <div className="px-2.5 py-1 bg-neutral-800 rounded-md text-xs font-medium text-neutral-300">
-                        1 vs 1
-                      </div>
-                    </div>
-
-                    <h3 className="text-2xl font-bold mb-2 text-white">Duels</h3>
-                    <p className="text-sm text-neutral-400 mb-4 leading-relaxed">
-                      Face off against a single opponent in intense head-to-head combat.
-                    </p>
-
-                    <div className="flex items-center justify-between pt-4 border-t border-neutral-800">
-                      <div>
-                        <div className="text-xs text-neutral-400">Your Crowns</div>
-                        <div className="text-lg font-bold text-emerald-500">
-                          {userData?.dualsCrowns || 0}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Link href="/duelsmatchup">
+                    <Card className="group bg-neutral-900/50 border-neutral-800 hover:border-emerald-500 p-6 cursor-pointer transition-all hover:bg-neutral-900">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 group-hover:bg-emerald-500/20 transition">
+                          <Swords className="w-7 h-7 text-emerald-500" />
+                        </div>
+                        <div className="px-2.5 py-1 bg-neutral-800 rounded-md text-xs font-medium text-neutral-300">
+                          1 vs 1
                         </div>
                       </div>
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white">
-                        Play Now
-                      </Button>
-                    </div>
-                  </Card>
-                </Link>
 
+                      <h3 className="text-2xl font-bold mb-2 text-white">Duels</h3>
+                      <p className="text-sm text-neutral-400 mb-4 leading-relaxed">
+                        Face off against a single opponent in intense head-to-head combat.
+                      </p>
 
-                <Link href="/havocmatchup">
-                  <Card className="group bg-neutral-900/50 border-neutral-800 hover:border-emerald-500 p-6 cursor-pointer transition-all hover:bg-neutral-900">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 group-hover:bg-emerald-500/20 transition">
-                        <Users className="w-7 h-7 text-emerald-500" />
+                      <div className="flex items-center justify-between pt-4 border-t border-neutral-800">
+                        <div>
+                          <div className="text-xs text-neutral-400">Your Crowns</div>
+                          <div className="text-lg font-bold text-emerald-500">
+                            {userData?.dualsCrowns || 0}
+                          </div>
+                        </div>
+                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                          Play Now
+                        </Button>
                       </div>
-                      <div className="px-2.5 py-1 bg-neutral-800 rounded-md text-xs font-medium text-neutral-300">
-                        FFA
-                      </div>
-                    </div>
+                    </Card>
+                  </Link>
 
-                    <h3 className="text-2xl font-bold mb-2 text-white">Havoc</h3>
-                    <p className="text-sm text-neutral-400 mb-4 leading-relaxed">
-                      Enter the chaos of free-for-all multiplayer battles.
-                    </p>
-
-                    <div className="flex items-center justify-between pt-4 border-t border-neutral-800">
-                      <div>
-                        <div className="text-xs text-neutral-400">Your Crowns</div>
-                        <div className="text-lg font-bold text-emerald-500">
-                          {userData?.havocCrowns || 0}
+                  <Link href="/havocmatchup">
+                    <Card className="group bg-neutral-900/50 border-neutral-800 hover:border-emerald-500 p-6 cursor-pointer transition-all hover:bg-neutral-900">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 group-hover:bg-emerald-500/20 transition">
+                          <Users className="w-7 h-7 text-emerald-500" />
+                        </div>
+                        <div className="px-2.5 py-1 bg-neutral-800 rounded-md text-xs font-medium text-neutral-300">
+                          FFA
                         </div>
                       </div>
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white">
-                        Join Battle
-                      </Button>
-                    </div>
-                  </Card>
-                </Link>
+
+                      <h3 className="text-2xl font-bold mb-2 text-white">Havoc</h3>
+                      <p className="text-sm text-neutral-400 mb-4 leading-relaxed">
+                        Enter the chaos of free-for-all multiplayer battles.
+                      </p>
+
+                      <div className="flex items-center justify-between pt-4 border-t border-neutral-800">
+                        <div>
+                          <div className="text-xs text-neutral-400">Your Crowns</div>
+                          <div className="text-lg font-bold text-emerald-500">
+                            {userData?.havocCrowns || 0}
+                          </div>
+                        </div>
+                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                          Join Battle
+                        </Button>
+                      </div>
+                    </Card>
+                  </Link>
+                </div>
               </div>
             </div>
 
+            <div className="lg:col-span-4">
+              <div>
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
+                  <TrendingUp className="w-5 h-5 text-emerald-500" />
+                  Your Stats
+                </h2>
+                <Card className="bg-neutral-900/50 border-neutral-800 h-full p-6">
+                  <div className="grid grid-cols-2 gap-4 h-full">
+                    <div className="p-4 rounded-xl bg-neutral-800/50 border border-neutral-800 flex flex-col justify-center items-center text-center gap-2 hover:border-emerald-500/50 transition group">
+                      <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-500 mb-1">
+                        <Crown className="w-5 h-5" />
+                      </div>
+                      <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Crowns</div>
+                      <div className="text-2xl font-bold text-white">
+                        {(userData?.dualsCrowns || 0) + (userData?.havocCrowns || 0)}
+                      </div>
+                    </div>
 
-            <div>
+                    <div className="p-4 rounded-xl bg-neutral-800/50 border border-neutral-800 flex flex-col justify-center items-center text-center gap-2 hover:border-emerald-500/50 transition group">
+                      <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500 mb-1">
+                        <Target className="w-5 h-5" />
+                      </div>
+                      <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Win Rate</div>
+                      <div className="text-2xl font-bold text-white">{winRate}%</div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-neutral-800/50 border border-neutral-800 flex flex-col justify-center items-center text-center gap-2 hover:border-emerald-500/50 transition group">
+                      <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500 mb-1">
+                        <Trophy className="w-5 h-5" />
+                      </div>
+                      <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Battles</div>
+                      <div className="text-2xl font-bold text-white">{userData?.totalBattles || 0}</div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-neutral-800/50 border border-neutral-800 flex flex-col justify-center items-center text-center gap-2 hover:border-emerald-500/50 transition group">
+                      <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500 mb-1">
+                        <Award className="w-5 h-5" />
+                      </div>
+                      <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Wins</div>
+                      <div className="text-2xl font-bold text-white">{userData?.wins || 0}</div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8 flex flex-col">
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
                 <Activity className="w-5 h-5 text-emerald-500" />
                 Recent Battles
               </h2>
 
-              <Card className="bg-neutral-900/50 border-neutral-800">
-                <div className="divide-y divide-neutral-800">
+              <Card className="bg-neutral-900/50 border-neutral-800 flex-1 flex flex-col">
+                <div className="divide-y divide-neutral-800 flex-1">
                   {recentBattles.length > 0 ? (
-                    recentBattles.slice(0, 5).map((battle, idx) => (
+                    recentBattles.slice(0, 6).map((battle, idx) => (
                       <div key={idx} className="p-4 hover:bg-neutral-800/50 transition flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                          <div className={`w-2 h-2 rounded-full ${battle.rank === 1 ? 'bg-emerald-500' : 'bg-neutral-600'
-                            }`} />
+                          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${battle.rank === 1
+                            ? 'bg-emerald-500/10 border border-emerald-500/20'
+                            : 'bg-neutral-800'
+                            }`}>
+                            <span className="text-xl font-bold text-white">#{battle.rank}</span>
+                          </div>
                           <div>
-                            <div className="font-medium text-white">
-                              {battle.battle.type} • {battle.battle.mode}
+                            <div className="font-medium text-sm text-white">
+                              {getBattleTypeDisplay(battle.battle.type)} • {battle.battle.mode}
                             </div>
                             <div className="text-xs text-neutral-400">
-                              Rank #{battle.rank} • {battle.score} points
+                              Score: {battle.score} points
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {battle.crownChange > 0 && (
-                            <div className="text-sm text-emerald-500 font-medium">
-                              +{battle.crownChange}
+                        <div className="flex items-center gap-3">
+                          {battle.crownChange !== undefined && (
+                            <div className={`text-sm font-medium px-3 py-1 rounded-md ${battle.crownChange > 0
+                              ? 'bg-emerald-500/10 text-emerald-500'
+                              : battle.crownChange < 0
+                                ? 'bg-red-500/10 text-red-500'
+                                : 'bg-neutral-800 text-neutral-400'
+                              }`}>
+                              {battle.crownChange > 0 ? '+' : ''}{battle.crownChange}
                             </div>
                           )}
                           {battle.rank === 1 && (
-                            <Medal className="w-5 h-5 text-yellow-500" />
+                            <Medal className="w-6 h-6 text-yellow-500" />
                           )}
                         </div>
                       </div>
@@ -275,20 +299,23 @@ export default function Homepage() {
                     </div>
                   )}
                 </div>
+                <div className="p-4 pt-0 mt-auto border-t border-neutral-800">
+                  <Link href="/profile">
+                    <Button variant="ghost" className="w-full text-sm text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10">
+                      View Full History
+                    </Button>
+                  </Link>
+                </div>
               </Card>
             </div>
-          </div>
 
-
-          <aside className="lg:col-span-4 space-y-6">
-
-            <div>
+            <div className="lg:col-span-4 flex flex-col">
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
                 <Trophy className="w-5 h-5 text-yellow-500" />
                 Leaderboard
               </h2>
 
-              <Card className="bg-neutral-900/50 border-neutral-800">
+              <Card className="bg-neutral-900/50 border-neutral-800 flex-1 flex flex-col">
 
                 <div className="p-4 border-b border-neutral-800">
                   <div className="flex gap-2 p-1 bg-neutral-800/50 rounded-lg">
@@ -357,10 +384,24 @@ export default function Homepage() {
                   </Link>
                 </div>
               </Card>
+
             </div>
-          </aside>
+          </div>
         </div>
+
+        <footer className="mt-12 pt-8 border-t border-neutral-800">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-neutral-500">
+              © 2025 Conflict. Competitive Coding Platform.
+            </div>
+            <div className="flex gap-6 text-sm text-neutral-500">
+              <a href="#" className="hover:text-emerald-500 transition">About</a>
+              <a href="#" className="hover:text-emerald-500 transition">Help</a>
+              <a href="#" className="hover:text-emerald-500 transition">Discord</a>
+            </div>
+          </div>
+        </footer>
       </div>
-    </div>
+    </div >
   );
 }

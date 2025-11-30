@@ -23,6 +23,16 @@ import {
   ChevronUp,
 } from "lucide-react";
 import api from "@/app/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function BattlePage() {
   const router = useRouter();
@@ -44,6 +54,7 @@ export default function BattlePage() {
   const [activeTab, setActiveTab] = useState("tests");
   const [customInput, setCustomInput] = useState("");
   const [customOutput, setCustomOutput] = useState(null);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
 
   const languages = [
     { id: 54, name: "C", monacoLanguage: "c" },
@@ -427,7 +438,7 @@ export default function BattlePage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push("/")}
+                onClick={() => setShowLeaveDialog(true)}
                 className="text-neutral-400 hover:text-white"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -798,6 +809,28 @@ export default function BattlePage() {
           </div>
         </div>
       </div>
+
+      <AlertDialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
+        <AlertDialogContent className="bg-neutral-900 border-neutral-800 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave Battle?</AlertDialogTitle>
+            <AlertDialogDescription className="text-neutral-400">
+              Are you sure you want to leave this battle? Your progress will be lost and you may lose crowns.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-transparent border-neutral-700 text-white hover:bg-neutral-800 hover:text-white">
+              Stay in Battle
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => router.push("/")}
+              className="bg-red-600 hover:bg-red-700 text-white border-0"
+            >
+              Leave Battle
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

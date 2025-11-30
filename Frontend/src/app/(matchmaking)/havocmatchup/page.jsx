@@ -17,9 +17,22 @@ import {
   Loader2,
   Dice3,
   UserPlus,
-  Flame
+  Flame,
+  LogOut
 } from "lucide-react";
 import { getSocket, disconnectSocket } from "@/lib/socket";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function HavocMatchupPage() {
   const router = useRouter();
@@ -37,15 +50,91 @@ export default function HavocMatchupPage() {
   const [maxPlayers, setMaxPlayers] = useState(10);
   const [countdown, setCountdown] = useState(30);
 
+  const isRedirecting = React.useRef(false);
+  const isStarting = React.useRef(false);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) router.push("/login");
   }, [router]);
 
+  const startBattle = async () => {
+    if (isStarting.current || isRedirecting.current) return;
+    isStarting.current = true;
+
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      await api.post(
+        `/battles/${currentBattle.id}/start`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (error) {
+      console.error("Error starting battle:", error);
+      const errorMsg = error.response?.data?.message || "";
+
+      console.log("Start battle error message:", errorMsg);
+
+      if (errorMsg.includes("Battle already started") || errorMsg.includes("completed")) {
+        if (!isRedirecting.current) {
+          isRedirecting.current = true;
+          console.log("Redirecting to battle:", currentBattle.id);
+          router.push(`/compiler?battleId=${currentBattle.id}`);
+        }
+      } else {
+        alert(errorMsg || "Failed to start battle");
+        isStarting.current = false;
+      }
+      setLoading(false);
+    }
+  };
+
+  const pollBattleStatus = async () => {
+    if (!currentBattle || isRedirecting.current) return;
+    try {
+      const response = await api.get(`/battles/${currentBattle.id}`);
+      const updatedBattle = response.data.data;
+
+      const userStr = localStorage.getItem("user");
+      const userId = userStr ? JSON.parse(userStr)?.id : null;
+      const isParticipant = !userId || updatedBattle.participants?.some(p => p.userId === userId || p.user?.id === userId);
+
+      if (!isParticipant) {
+        console.log("User ID:", userId, "Participants:", updatedBattle.participants);
+        alert("You are not a participant in this battle");
+        setMode("select");
+        setCurrentBattle(null);
+        return;
+      }
+
+      setCurrentBattle(updatedBattle);
+
+      if (updatedBattle.status === "ACTIVE") {
+        if (!isRedirecting.current) {
+          isRedirecting.current = true;
+          router.push(`/compiler?battleId=${updatedBattle.id}`);
+        }
+      } else if (updatedBattle.status === "WAITING") {
+        const participantCount = updatedBattle.participants?.length || 0;
+        const maxPlayers = updatedBattle.maxPlayers || 10;
+
+        if (participantCount >= maxPlayers) {
+          await startBattle();
+        }
+      }
+    } catch (error) {
+      console.error("Error polling battle:", error);
+    }
+  };
+
   useEffect(() => {
     if (mode === "lobby" && currentBattle) {
       const socket = getSocket();
       socket.emit("join_battle", currentBattle.id);
+
+      // Initial poll
+      pollBattleStatus();
 
       socket.on("battle:update", (data) => {
         console.log("Battle update:", data);
@@ -53,7 +142,10 @@ export default function HavocMatchupPage() {
           // Re-fetch battle to get full participant details
           pollBattleStatus();
         } else if (data.type === "started") {
-          router.push(`/compiler?battleId=${data.battleId}`);
+          if (!isRedirecting.current) {
+            isRedirecting.current = true;
+            router.push(`/compiler?battleId=${data.battleId}`);
+          }
         }
       });
 
@@ -86,40 +178,7 @@ export default function HavocMatchupPage() {
     }
   }, [mode, currentBattle]);
 
-  const pollBattleStatus = async () => {
-    if (!currentBattle) return;
-    try {
-      const response = await api.get(`/battles/${currentBattle.id}`);
-      const updatedBattle = response.data.data;
 
-      const userStr = localStorage.getItem("user");
-      const userId = userStr ? JSON.parse(userStr)?.id : null;
-      const isParticipant = !userId || updatedBattle.participants?.some(p => p.userId === userId || p.user?.id === userId);
-
-      if (!isParticipant) {
-        console.log("User ID:", userId, "Participants:", updatedBattle.participants);
-        alert("You are not a participant in this battle");
-        setMode("select");
-        setCurrentBattle(null);
-        return;
-      }
-
-      setCurrentBattle(updatedBattle);
-
-      if (updatedBattle.status === "ACTIVE") {
-        router.push(`/compiler?battleId=${updatedBattle.id}`);
-      } else if (updatedBattle.status === "WAITING") {
-        const participantCount = updatedBattle.participants?.length || 0;
-        const maxPlayers = updatedBattle.maxPlayers || 10;
-
-        if (participantCount >= maxPlayers) {
-          await startBattle();
-        }
-      }
-    } catch (error) {
-      console.error("Error polling battle:", error);
-    }
-  };
 
   const fetchProblems = async () => {
     try {
@@ -255,21 +314,7 @@ export default function HavocMatchupPage() {
     }
   };
 
-  const startBattle = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      await api.post(
-        `/battles/${currentBattle.id}/start`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-    } catch (error) {
-      console.error("Error starting battle:", error);
-      alert(error.response?.data?.message || "Failed to start battle");
-      setLoading(false);
-    }
-  };
+
 
   const leaveBattle = async () => {
     try {
@@ -695,7 +740,8 @@ export default function HavocMatchupPage() {
               variant="outline"
               className="border-neutral-700 hover:border-red-500/50 hover:bg-red-500/10 text-neutral-300 hover:text-red-400"
             >
-              Leave Battle
+              <LogOut className="w-4 h-4 mr-2" />
+              Leave Lobby
             </Button>
           </div>
         </div>
