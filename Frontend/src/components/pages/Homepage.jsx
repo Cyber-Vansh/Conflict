@@ -1,9 +1,17 @@
 "use client"
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import api from "@/app/api";
 import {
@@ -20,15 +28,25 @@ import {
   Medal,
   Star,
   Code2,
-  Search
+
+  Search,
+  User,
+  LogOut
 } from "lucide-react";
 
 export default function Homepage() {
+  const router = useRouter();
   const [userData, setUserData] = useState(null);
   const [leaderboard, setLeaderboard] = useState({ duels: [], havoc: [] });
   const [leaderboardMode, setLeaderboardMode] = useState("duels");
   const [recentBattles, setRecentBattles] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    router.push("/login");
+  };
 
   const fetchData = async () => {
     try {
@@ -117,12 +135,25 @@ export default function Homepage() {
                 Friends
               </Button>
             </Link>
-            <Link href="/profile">
-              <Avatar className="w-10 h-10 border-2 border-neutral-800 cursor-pointer hover:border-emerald-500 transition">
-                <AvatarImage src={userData?.avatar} />
-                <AvatarFallback className="bg-neutral-800 text-white">{userData?.username?.[0]?.toUpperCase()}</AvatarFallback>
-              </Avatar>
-            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Avatar className="w-10 h-10 border-2 border-neutral-800 cursor-pointer hover:border-emerald-500 transition">
+                  <AvatarImage src={userData?.avatar} />
+                  <AvatarFallback className="bg-neutral-800 text-white">{userData?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-neutral-900 border-neutral-800 text-white">
+                <DropdownMenuItem className="cursor-pointer hover:bg-neutral-800 focus:bg-neutral-800 focus:text-white" onClick={() => router.push("/profile")}>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-neutral-800" />
+                <DropdownMenuItem className="cursor-pointer hover:bg-neutral-800 focus:bg-neutral-800 text-red-500 hover:text-red-400 focus:text-red-400" onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 

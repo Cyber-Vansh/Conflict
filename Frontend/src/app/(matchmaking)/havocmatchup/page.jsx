@@ -47,6 +47,7 @@ export default function HavocMatchupPage() {
 
   const isRedirecting = React.useRef(false);
   const isStarting = React.useRef(false);
+  const isLeaving = React.useRef(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -117,7 +118,7 @@ export default function HavocMatchupPage() {
   };
 
   const pollBattleStatus = async () => {
-    if (!currentBattle || isRedirecting.current) return;
+    if (!currentBattle || isRedirecting.current || isLeaving.current) return;
     try {
       const response = await api.get(`/battles/${currentBattle.id}`);
       const updatedBattle = response.data.data;
@@ -163,7 +164,7 @@ export default function HavocMatchupPage() {
 
       socket.on("battle:update", (data) => {
         console.log("Battle update:", data);
-        if (data.type === "player_joined") {
+        if (data.type === "player_joined" || data.type === "player_left") {
           pollBattleStatus();
         } else if (data.type === "started") {
           if (!isRedirecting.current) {
@@ -181,22 +182,33 @@ export default function HavocMatchupPage() {
   }, [mode, currentBattle?.id]);
 
   useEffect(() => {
-
     if (mode === "lobby" && currentBattle && currentBattle.status === "WAITING" && currentBattle.mode === "RANKED") {
+      const calculateRemainingTime = () => {
+        if (!currentBattle.createdAt) return 30;
+        const createdAt = new Date(currentBattle.createdAt).getTime();
+        const now = Date.now();
+        const elapsedSeconds = (now - createdAt) / 1000;
+        const cycleLength = 30;
+        const remaining = cycleLength - (elapsedSeconds % cycleLength);
+        return Math.max(0, remaining);
+      };
+
+      // Initial set
+      setCountdown(Math.ceil(calculateRemainingTime()));
+
       const timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            const participantCount = currentBattle.participants?.length || 0;
-            if (participantCount >= 2) {
-              startBattle();
-              return 0;
-            } else {
-              return 30;
-            }
+        const remaining = calculateRemainingTime();
+        setCountdown(Math.ceil(remaining));
+
+        // Trigger start if we are at the end of a cycle (e.g., < 1s remaining)
+        if (remaining <= 1.5) { // Slightly larger window to ensure we catch it
+          const participantCount = currentBattle.participants?.length || 0;
+          if (participantCount >= 2) {
+            startBattle();
           }
-          return prev - 1;
-        });
+        }
       }, 1000);
+
       return () => clearInterval(timer);
     } else {
       setCountdown(30);
@@ -220,11 +232,15 @@ export default function HavocMatchupPage() {
       );
 
       if (availableBattle) {
-        await api.post(
-          `/battles/${availableBattle.id}/join`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const isAlreadyParticipant = availableBattle.participants?.some(p => p.userId === currentUserId);
+
+        if (!isAlreadyParticipant) {
+          await api.post(
+            `/battles/${availableBattle.id}/join`,
+            {},
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+        }
 
         const updatedBattleResponse = await api.get(`/battles/${availableBattle.id}`);
         setCurrentBattle(updatedBattleResponse.data.data);
@@ -315,6 +331,8 @@ export default function HavocMatchupPage() {
 
 
   const leaveBattle = async () => {
+    if (isLeaving.current) return;
+    isLeaving.current = true;
     try {
       const token = localStorage.getItem("token");
       await api.post(
@@ -326,6 +344,8 @@ export default function HavocMatchupPage() {
       setMode("select");
     } catch (error) {
       console.error("Error leaving battle:", error);
+    } finally {
+      isLeaving.current = false;
     }
   };
 
@@ -541,11 +561,7 @@ export default function HavocMatchupPage() {
     const sortedParticipants = [...participants].sort((a, b) => new Date(a.joinedAt) - new Date(b.joinedAt));
     const hostId = sortedParticipants.length > 0 ? sortedParticipants[0].userId : null;
 
-    console.log("Participants:", participants);
-    console.log("Sorted Participants:", sortedParticipants);
-    console.log("Host ID:", hostId, "Type:", typeof hostId);
-    console.log("Current User ID:", currentUserId, "Type:", typeof currentUserId);
-    console.log("Is Host:", currentUserId === hostId);
+
 
     const isHost = currentUserId === hostId;
 

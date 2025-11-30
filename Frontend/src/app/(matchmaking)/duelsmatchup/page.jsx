@@ -42,13 +42,38 @@ export default function DuelsMatchupPage() {
   const [currentBattle, setCurrentBattle] = useState(null);
   const [loading, setLoading] = useState(false);
   const [roomId, setRoomId] = useState("");
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const isRedirecting = React.useRef(false);
   const isStarting = React.useRef(false);
+  const isLeaving = React.useRef(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) router.push("/login");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setCurrentUserId(user.id);
+      } catch (e) {
+        console.error("Failed to parse user from local storage", e);
+      }
+    } else {
+      api.get("/auth/profile", { headers: { Authorization: `Bearer ${token}` } })
+        .then(res => {
+          if (res.data.success) {
+            const user = res.data.data;
+            localStorage.setItem("user", JSON.stringify(user));
+            setCurrentUserId(user.id);
+          }
+        })
+        .catch(err => console.error(err));
+    }
   }, [router]);
 
   const startBattle = async () => {
@@ -84,7 +109,7 @@ export default function DuelsMatchupPage() {
   };
 
   const pollBattleStatus = async () => {
-    if (!currentBattle || isRedirecting.current) return;
+    if (!currentBattle || isRedirecting.current || isLeaving.current) return;
     try {
       const response = await api.get(`/battles/${currentBattle.id}`);
       const updatedBattle = response.data.data;
@@ -125,7 +150,7 @@ export default function DuelsMatchupPage() {
 
       socket.on("battle:update", (data) => {
         console.log("Battle update:", data);
-        if (data.type === "player_joined") {
+        if (data.type === "player_joined" || data.type === "player_left") {
           pollBattleStatus();
         } else if (data.type === "started") {
           if (!isRedirecting.current) {
@@ -160,11 +185,15 @@ export default function DuelsMatchupPage() {
       );
 
       if (availableBattle) {
-        await api.post(
-          `/battles/${availableBattle.id}/join`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const isAlreadyParticipant = availableBattle.participants?.some(p => p.userId === currentUserId);
+
+        if (!isAlreadyParticipant) {
+          await api.post(
+            `/battles/${availableBattle.id}/join`,
+            {},
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+        }
 
         const updatedBattleResponse = await api.get(`/battles/${availableBattle.id}`);
         setCurrentBattle(updatedBattleResponse.data.data);
@@ -259,6 +288,8 @@ export default function DuelsMatchupPage() {
 
 
   const leaveBattle = async () => {
+    if (isLeaving.current) return;
+    isLeaving.current = true;
     try {
       const token = localStorage.getItem("token");
       await api.post(
@@ -270,6 +301,8 @@ export default function DuelsMatchupPage() {
       setMode("select");
     } catch (error) {
       console.error("Error leaving battle:", error);
+    } finally {
+      isLeaving.current = false;
     }
   };
 

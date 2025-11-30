@@ -551,6 +551,17 @@ const leaveBattle = async (req, res) => {
             },
         });
 
+        try {
+            const io = getIO();
+            io.to(`battle_${id}`).emit("battle:update", {
+                battleId: parseInt(id),
+                type: "player_left",
+                userId: req.user.id
+            });
+        } catch (e) {
+            console.error("Socket emit error (player_left):", e.message);
+        }
+
         return res.status(200).json({
             success: true,
             message: "Left battle successfully",
