@@ -26,31 +26,39 @@ const runCode = async (req, res) => {
     const token = submission.data.token;
 
     let result = null;
-    while (!result || !result.status || result.status.id < 3) {
-      const resCheck = await axios.get(`${JUDGE0_URL}/submissions/${token}?base64_encoded=false`, {
-        headers: {
-          "X-RapidAPI-Key": RAPIDAPI_KEY,
-          "X-RapidAPI-Host": RAPIDAPI_HOST,
-        },
-      });
+    let attempts = 0;
 
-      result = resCheck.data;
+    while (attempts < 10) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const check = await axios.get(
+        `${JUDGE0_URL}/submissions/${token}?base64_encoded=false`,
+        {
+          headers: {
+            "X-RapidAPI-Key": RAPIDAPI_KEY,
+            "X-RapidAPI-Host": RAPIDAPI_HOST,
+          },
+        }
+      );
 
-      if (result.status.id < 3) await new Promise((r) => setTimeout(r, 500));
+      if (check.data.status.id !== 1 && check.data.status.id !== 2) {
+        result = check.data;
+        break;
+      }
+      attempts++;
     }
 
-    res.json({
-      stdout: result.stdout,
-      stderr: result.stderr,
-      compile_output: result.compile_output,
-      exit_code: result.exit_code,
-      status: result.status,
-      memory: result.memory,
-      time: result.time,
-    });
+    if (!result) {
+      throw new Error("Submission timed out or failed");
+    }
+
+    res.json(result);
+
   } catch (error) {
     console.error("Error in /run endpoint:");
     console.error("Message:", error.message);
+
+
+
     console.error("Response data:", error.response?.data);
     console.error("Stack:", error.stack);
 

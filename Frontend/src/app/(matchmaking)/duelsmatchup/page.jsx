@@ -19,6 +19,7 @@ import {
   Dice3,
   UserPlus
 } from "lucide-react";
+import { getSocket, disconnectSocket } from "@/lib/socket";
 
 export default function DuelsMatchupPage() {
   const router = useRouter();
@@ -41,11 +42,24 @@ export default function DuelsMatchupPage() {
 
   useEffect(() => {
     if (mode === "lobby" && currentBattle) {
-      const interval = setInterval(() => {
-        pollBattleStatus();
-      }, 2000);
-      setPollingInterval(interval);
-      return () => clearInterval(interval);
+      const socket = getSocket();
+      socket.emit("join_battle", currentBattle.id);
+
+      socket.on("battle:update", (data) => {
+        console.log("Battle update:", data);
+        if (data.type === "player_joined") {
+          // Re-fetch battle to get full participant details
+          // Or manually update state if we trust the data
+          pollBattleStatus();
+        } else if (data.type === "started") {
+          router.push(`/compiler?battleId=${data.battleId}`);
+        }
+      });
+
+      return () => {
+        socket.emit("leave_battle", currentBattle.id);
+        socket.off("battle:update");
+      };
     }
   }, [mode, currentBattle]);
 

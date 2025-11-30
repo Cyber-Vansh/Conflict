@@ -1,4 +1,5 @@
 const prisma = require("../prismaClient");
+const { getIO } = require("../socket");
 
 const createBattle = async (req, res) => {
     try {
@@ -121,6 +122,36 @@ const getBattleById = async (req, res) => {
             return res.status(404).json({ success: false, message: "Battle not found" });
         }
 
+        const now = new Date();
+        const endTime = battle.endTime ? new Date(battle.endTime) : null;
+
+        if (battle.status === "ACTIVE" && endTime && now > endTime) {
+            await finishBattle(parseInt(id));
+
+            const updatedBattle = await prisma.battle.findUnique({
+                where: { id: parseInt(id) },
+                include: {
+                    problem: {
+                        include: {
+                            testCases: {
+                                where: { isSample: true },
+                                orderBy: { id: "asc" },
+                            },
+                        },
+                    },
+                    participants: {
+                        include: {
+                            user: {
+                                select: { id: true, username: true, avatar: true, dualsCrowns: true, havocCrowns: true },
+                            },
+                        },
+                        orderBy: { score: "desc" },
+                    },
+                },
+            });
+            return res.status(200).json({ success: true, data: updatedBattle });
+        }
+
         return res.status(200).json({ success: true, data: battle });
     } catch (error) {
         console.error(error);
@@ -167,6 +198,17 @@ const joinBattle = async (req, res) => {
                 },
             },
         });
+
+        try {
+            const io = getIO();
+            io.to(`battle_${id}`).emit("battle:update", {
+                battleId: parseInt(id),
+                type: "player_joined",
+                participant
+            });
+        } catch (e) {
+            console.error("Socket emit error (player_joined):", e.message);
+        }
 
         return res.status(200).json({
             success: true,
@@ -219,6 +261,22 @@ const startBattle = async (req, res) => {
             },
         });
 
+        try {
+            const io = getIO();
+            io.to(`battle_${id}`).emit("battle:update", {
+                battleId: parseInt(id),
+                type: "started",
+                battle: updatedBattle
+            });
+        } catch (e) {
+            console.error("Socket emit error (started):", e.message);
+        }
+
+        setTimeout(() => {
+            console.log(`Auto-ending battle ${id}`);
+            finishBattle(parseInt(id)).catch(err => console.error(`Failed to auto-end battle ${id}:`, err));
+        }, (battle.duration + 2) * 1000);
+
         return res.status(200).json({
             success: true,
             message: "Battle started",
@@ -230,12 +288,32 @@ const startBattle = async (req, res) => {
     }
 };
 
+
+
 const endBattle = async (req, res) => {
     try {
         const { id } = req.params;
+        const result = await finishBattle(parseInt(id));
 
+        if (!result) {
+            return res.status(400).json({ success: false, message: "Battle could not be ended (not found or not active)" });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Battle ended",
+            data: result,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+};
+
+async function finishBattle(battleId) {
+    try {
         const battle = await prisma.battle.findUnique({
-            where: { id: parseInt(id) },
+            where: { id: battleId },
             include: {
                 participants: {
                     include: {
@@ -247,11 +325,11 @@ const endBattle = async (req, res) => {
         });
 
         if (!battle) {
-            return res.status(404).json({ success: false, message: "Battle not found" });
+            return null;
         }
 
         if (battle.status !== "ACTIVE") {
-            return res.status(400).json({ success: false, message: "Battle is not active" });
+            return null;
         }
 
         const rankedParticipants = battle.participants.map((p, index) => ({
@@ -261,7 +339,20 @@ const endBattle = async (req, res) => {
             score: p.score,
         }));
 
-        const crownChanges = calculateCrownChanges(rankedParticipants, battle.type, battle.mode);
+        const crownChanges = rankedParticipants.map((p, index) => {
+            if (battle.mode !== "RANKED") return 0;
+
+            if (battle.type === "DUALS") {
+                if (p.rank === 1) return 25;
+                return -25;
+            } else {
+                if (p.rank === 1) return 50;
+                if (p.rank === 2) return 25;
+                if (p.rank === 3) return 10;
+                const penalty = 10 + (p.rank - 4) * 5;
+                return -Math.min(penalty, 50);
+            }
+        });
 
         await prisma.$transaction(async (tx) => {
             for (let i = 0; i < rankedParticipants.length; i++) {
@@ -291,7 +382,7 @@ const endBattle = async (req, res) => {
             }
 
             await tx.battle.update({
-                where: { id: parseInt(id) },
+                where: { id: battleId },
                 data: {
                     status: "COMPLETED",
                     endTime: new Date(),
@@ -299,8 +390,18 @@ const endBattle = async (req, res) => {
             });
         });
 
+        try {
+            const io = getIO();
+            io.to(`battle_${battleId}`).emit("battle:update", {
+                battleId: battleId,
+                type: "ended"
+            });
+        } catch (e) {
+            console.error("Socket emit error (ended):", e.message);
+        }
+
         const updatedBattle = await prisma.battle.findUnique({
-            where: { id: parseInt(id) },
+            where: { id: parseInt(battleId) },
             include: {
                 participants: {
                     include: {
@@ -313,16 +414,13 @@ const endBattle = async (req, res) => {
             },
         });
 
-        return res.status(200).json({
-            success: true,
-            message: "Battle ended",
-            data: updatedBattle,
-        });
+        return updatedBattle;
+
     } catch (error) {
         console.error(error);
-        res.status(500).json({ success: false, message: "Server error" });
+        return null;
     }
-};
+}
 
 function calculateCrownChanges(participants, battleType, battleMode) {
     if (battleMode !== "RANKED") {
@@ -398,10 +496,14 @@ const getUserBattles = async (req, res) => {
         const { userId } = req.params;
         const { status, type, page = 1, limit = 20 } = req.query;
 
-        const where = { userId: parseInt(userId) };
         const battleWhere = {};
         if (status) battleWhere.status = status;
         if (type) battleWhere.type = type;
+
+        const where = {
+            userId: parseInt(userId),
+            battle: battleWhere
+        };
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
@@ -410,7 +512,6 @@ const getUserBattles = async (req, res) => {
                 where,
                 include: {
                     battle: {
-                        where: battleWhere,
                         include: {
                             problem: {
                                 select: { id: true, title: true, difficulty: true },

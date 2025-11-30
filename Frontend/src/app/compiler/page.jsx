@@ -1,5 +1,6 @@
 "use client";
 
+import { getSocket, disconnectSocket } from "../../lib/socket";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Editor from "@monaco-editor/react";
@@ -42,6 +43,7 @@ export default function BattlePage() {
   const [pollingSubmissions, setPollingSubmissions] = useState(false);
   const [activeTab, setActiveTab] = useState("tests");
   const [customInput, setCustomInput] = useState("");
+  const [customOutput, setCustomOutput] = useState(null);
 
   const languages = [
     { id: 54, name: "C", monacoLanguage: "c" },
@@ -81,7 +83,7 @@ export default function BattlePage() {
 
         if (diff === 0) {
           clearInterval(interval);
-          setTimeout(() => router.push("/"), 2000);
+          setTimeout(() => router.push(`/battle/${battleId}/result`), 2000);
         }
       }, 1000);
 
@@ -94,7 +96,8 @@ export default function BattlePage() {
       const response = await api.get(`/battles/${battleId}`);
       const battleData = response.data.data;
       setBattle(battleData);
-      if (battleData.problem) {
+
+      if (battleData.problem && !problem) {
         setProblem(battleData.problem);
 
         const savedCode = localStorage.getItem(`code_${battleId}_${battleData.problem.id}`);
@@ -106,10 +109,46 @@ export default function BattlePage() {
       }
     } catch (error) {
       console.error("Error fetching battle:", error);
-      alert("Failed to load battle");
-      router.push("/");
+      if (error.response && (error.response.status === 404 || error.response.status === 403)) {
+        alert("Failed to load battle");
+        router.push("/");
+      }
     }
   };
+
+  useEffect(() => {
+    fetchBattle();
+
+    const socket = getSocket();
+
+    if (battleId) {
+      socket.emit("join_battle", battleId);
+
+      socket.on("battle:update", (data) => {
+        console.log("Battle update received:", data);
+        if (data.type === "participant_completed" && data.userId === currentUser?.id) {
+          router.push(`/battle/${battleId}/result`);
+        } else if (data.type === "ended") {
+          router.push(`/battle/${battleId}/result`);
+        } else {
+          fetchBattle();
+        }
+      });
+
+      socket.on("submission:processed", (data) => {
+        console.log("Submission processed:", data);
+        fetchBattle();
+      });
+    }
+
+    return () => {
+      if (battleId) {
+        socket.emit("leave_battle", battleId);
+        socket.off("battle:update");
+        socket.off("submission:processed");
+      }
+    };
+  }, [battleId]);
 
   const handleLanguageChange = (newLangId) => {
     const langId = parseInt(newLangId);
@@ -169,15 +208,10 @@ export default function BattlePage() {
 
         console.log("Custom input response:", response.data);
 
-        setTestResults([{
-          input: customInput,
-          expectedOutput: "N/A",
-          actualOutput: response.data.stdout || response.data.stderr || "",
-          passed: !response.data.stderr,
-          time: response.data.time,
-          memory: response.data.memory,
-        }]);
+        setCustomOutput(response.data.stdout || response.data.stderr || "");
+        setTestResults([]);
       } else {
+        setCustomOutput(null);
         let testCases = problem.testCases?.filter(tc => tc.isSample) || [];
 
         if (testCases.length === 0) {
@@ -606,7 +640,22 @@ export default function BattlePage() {
             <div className="flex-1 overflow-y-auto p-6">
               {activeTab === "tests" ? (
                 <>
-                  {testResults.length > 0 ? (
+                  {customOutput !== null ? (
+                    <Card className="p-4 border border-neutral-800 bg-neutral-900/50">
+                      <div className="mb-4">
+                        <div className="text-sm font-medium text-neutral-400 mb-2">Custom Input</div>
+                        <code className="block bg-neutral-950 p-3 rounded text-xs font-mono text-neutral-300 whitespace-pre-wrap">
+                          {customInput}
+                        </code>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-neutral-400 mb-2">Output</div>
+                        <code className="block bg-neutral-950 p-3 rounded text-xs font-mono text-white whitespace-pre-wrap">
+                          {customOutput}
+                        </code>
+                      </div>
+                    </Card>
+                  ) : testResults.length > 0 ? (
                     <div className="space-y-3">
                       {testResults.map((result, idx) => (
                         <Card

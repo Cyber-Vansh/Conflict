@@ -1,5 +1,6 @@
 const prisma = require("../prismaClient");
 const axios = require("axios");
+const { getIO } = require("../socket");
 
 const JUDGE0_URL = "https://judge0-ce.p.rapidapi.com";
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
@@ -87,6 +88,7 @@ async function runTestCases(submissionId, code, languageId, testCases, timeLimit
         let maxMemory = 0;
 
         for (const testCase of testCases) {
+            let result = null;
             try {
                 const submissionResponse = await axios.post(
                     `${JUDGE0_URL}/submissions?base64_encoded=false&wait=false`,
@@ -94,9 +96,8 @@ async function runTestCases(submissionId, code, languageId, testCases, timeLimit
                         source_code: code,
                         language_id: parseInt(languageId),
                         stdin: testCase.input,
-                        expected_output: testCase.output,
-                        cpu_time_limit: timeLimit / 1000,
-                        memory_limit: memoryLimit,
+                        cpu_time_limit: timeLimit < 100 ? timeLimit : timeLimit / 1000,
+                        memory_limit: memoryLimit * 1024,
                     },
                     {
                         headers: {
@@ -108,13 +109,11 @@ async function runTestCases(submissionId, code, languageId, testCases, timeLimit
                 );
 
                 const token = submissionResponse.data.token;
-
-                let result = null;
                 let attempts = 0;
-                while ((!result || !result.status || result.status.id < 3) && attempts < 20) {
-                    await new Promise((resolve) => setTimeout(resolve, 500));
 
-                    const checkResponse = await axios.get(
+                while (attempts < 10) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    const resultResponse = await axios.get(
                         `${JUDGE0_URL}/submissions/${token}?base64_encoded=false`,
                         {
                             headers: {
@@ -124,59 +123,178 @@ async function runTestCases(submissionId, code, languageId, testCases, timeLimit
                         }
                     );
 
-                    result = checkResponse.data;
+                    if (resultResponse.data.status.id !== 1 && resultResponse.data.status.id !== 2) {
+                        result = resultResponse.data;
+                        break;
+                    }
                     attempts++;
                 }
+            } catch (apiError) {
+                throw apiError;
+            }
 
-                const passed = result.status.id === 3;
-                if (passed) {
-                    passedCount++;
-                    totalScore += testCase.points;
+            if (!result) {
+                throw new Error("Failed to retrieve submission result");
+            }
+            const normalize = (str) => (str || "").trim().split(/\s+/).join(" ");
+
+            const actualOutput = (result.stdout || "").trim();
+            const expectedOutput = (testCase.output || "").trim();
+
+            const normalizedActual = normalize(actualOutput);
+            const normalizedExpected = normalize(expectedOutput);
+
+            const passed = normalizedActual === normalizedExpected;
+
+            const executionSuccess = result.status.id === 3;
+
+            const finalPassed = executionSuccess && passed;
+
+            console.log(`\n--- Test Case ${testCase.id} Debug ---`);
+            console.log(`Input:            ${JSON.stringify(testCase.input)}`);
+            console.log(`Expected (Raw):   ${JSON.stringify(expectedOutput)}`);
+            console.log(`Actual (Raw):     ${JSON.stringify(actualOutput)}`);
+            console.log(`Expected (Norm):  ${JSON.stringify(normalizedExpected)}`);
+            console.log(`Actual (Norm):    ${JSON.stringify(normalizedActual)}`);
+            console.log(`Comparison:       ${normalizedActual === normalizedExpected}`);
+            console.log(`Passed Logic:     ${passed}`);
+            console.log(`Judge0 Status:    ${result.status.id} (${result.status.description})`);
+            console.log(`Final Passed:     ${finalPassed}`);
+            console.log(`----------------------------------\n`);
+
+            if (finalPassed) {
+                passedCount++;
+                totalScore += 10;
+            }
+
+            testResults.push({
+                testCaseId: testCase.id,
+                passed: finalPassed,
+                statusId: finalPassed ? 3 : (executionSuccess ? 4 : result.status.id),
+                statusDescription: finalPassed ? "Accepted" : (executionSuccess ? "Wrong Answer" : result.status.description),
+                time: result.time,
+                memory: result.memory,
+                actualOutput: actualOutput,
+                expectedOutput: expectedOutput,
+                debug: {
+                    normalizedActual,
+                    normalizedExpected
                 }
+            });
 
-                testResults.push({
-                    testCaseId: testCase.id,
-                    passed,
-                    statusId: result.status.id,
-                    statusDescription: result.status.description,
-                    time: result.time,
-                    memory: result.memory,
-                });
+            if (result.time) maxTime = Math.max(maxTime, parseFloat(result.time));
+            if (result.memory) maxMemory = Math.max(maxMemory, parseInt(result.memory));
 
-                if (result.time) maxTime = Math.max(maxTime, parseFloat(result.time));
-                if (result.memory) maxMemory = Math.max(maxMemory, parseInt(result.memory));
-
-                if (!passed && !testCase.isSample) {
-                    break;
-                }
-            } catch (error) {
-                console.error("Error running test case:", error);
-                testResults.push({
-                    testCaseId: testCase.id,
-                    passed: false,
-                    error: "Execution error",
-                });
+            if (!passed && !testCase.isSample) {
+                break;
             }
         }
 
-        const allPassed = passedCount === testCases.length;
-        const finalStatus = allPassed ? "ACCEPTED" : "WRONG_ANSWER";
 
-        await prisma.submission.update({
+        const allPassed = passedCount === testCases.length;
+
+        // Determine final status based on test results
+        let finalStatus = "ACCEPTED";
+        if (!allPassed) {
+            const errorPriorities = {
+                6: 5,
+                13: 4,
+                5: 3,
+                6: 2,
+            };
+
+            let worstStatusId = 4;
+            let worstPriority = 0;
+
+            for (const res of testResults) {
+                if (!res.passed) {
+                    const statusId = res.statusId;
+                    let priority = 0;
+                    if (statusId === 5) priority = 3;
+                    else if (statusId === 6) priority = 5;
+                    else if (statusId >= 7 && statusId <= 12) priority = 2;
+                    else if (statusId === 13 || statusId === 14) priority = 4;
+
+                    if (priority > worstPriority) {
+                        worstPriority = priority;
+                        worstStatusId = statusId;
+                    }
+                }
+            }
+
+            if (worstStatusId === 5) finalStatus = "TIME_LIMIT_EXCEEDED";
+            else if (worstStatusId === 6) finalStatus = "COMPILATION_ERROR";
+            else if (worstStatusId >= 7 && worstStatusId <= 12) finalStatus = "RUNTIME_ERROR";
+            else if (worstStatusId === 13) finalStatus = "INTERNAL_ERROR";
+            else finalStatus = "WRONG_ANSWER";
+        }
+
+        let finalScore = 0;
+
+        const submission = await prisma.submission.findUnique({
+            where: { id: submissionId },
+        });
+
+        if (allPassed && submission.battleId) {
+            const battle = await prisma.battle.findUnique({
+                where: { id: submission.battleId },
+                include: { problem: true }
+            });
+
+            if (battle && battle.status === "ACTIVE") {
+                const difficultyScores = { "EASY": 500, "MEDIUM": 1000, "HARD": 1500 };
+                const maxScore = difficultyScores[battle.problem.difficulty] || 500;
+
+                const timeElapsed = (Date.now() - new Date(battle.startTime).getTime()) / 1000;
+                const duration = battle.duration;
+
+                const timeFactor = maxScore * (1 - (timeElapsed / duration) / 2);
+
+                const wrongSubmissions = await prisma.submission.count({
+                    where: {
+                        userId: submission.userId,
+                        battleId: submission.battleId,
+                        problemId: submission.problemId,
+                        status: { not: "ACCEPTED" },
+                        id: { lt: submissionId }
+                    }
+                });
+
+                const penalty = wrongSubmissions * 50;
+
+                finalScore = Math.max(Math.floor(timeFactor - penalty), 10);
+            }
+        } else if (allPassed) {
+            const problem = await prisma.problem.findUnique({ where: { id: submission.problemId } });
+            const difficultyScores = { "EASY": 500, "MEDIUM": 1000, "HARD": 1500 };
+            finalScore = difficultyScores[problem.difficulty] || 500;
+        }
+
+        const updatedSubmission = await prisma.submission.update({
             where: { id: submissionId },
             data: {
                 status: finalStatus,
                 passedTestCases: passedCount,
-                score: totalScore,
+                score: finalScore,
                 executionTime: maxTime,
                 memoryUsed: maxMemory,
                 testResults: JSON.stringify(testResults),
             },
         });
 
-        const submission = await prisma.submission.findUnique({
-            where: { id: submissionId },
-        });
+        try {
+            const io = getIO();
+            io.to(`user_${updatedSubmission.userId}`).emit("submission:processed", {
+                submissionId: updatedSubmission.id,
+                status: finalStatus,
+                score: finalScore,
+                passedTestCases: passedCount,
+                totalTestCases: testCases.length,
+                testResults: testResults
+            });
+        } catch (e) {
+            console.error("Socket emit error (submission:processed):", e.message);
+        }
 
         if (submission.battleId && allPassed) {
             await prisma.battleParticipant.updateMany({
@@ -185,10 +303,22 @@ async function runTestCases(submissionId, code, languageId, testCases, timeLimit
                     battleId: submission.battleId,
                 },
                 data: {
-                    score: { increment: totalScore },
+                    score: { increment: finalScore },
                     hasCompleted: true,
                 },
             });
+
+            try {
+                const io = getIO();
+                io.to(`battle_${submission.battleId}`).emit("battle:update", {
+                    battleId: submission.battleId,
+                    type: "score_update",
+                    userId: submission.userId,
+                    score: finalScore
+                });
+            } catch (e) {
+                console.error("Socket emit error (battle:update):", e.message);
+            }
         }
     } catch (error) {
         console.error("Error in runTestCases:", error);

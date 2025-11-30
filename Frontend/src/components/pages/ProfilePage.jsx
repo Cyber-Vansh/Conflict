@@ -307,10 +307,19 @@ export default function ProfilePage() {
 
         {stats?.recentBattles && stats.recentBattles.length > 0 && (
           <div className="mb-10">
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-white">
-              <Calendar className="w-5 h-5 text-emerald-500" />
-              Recent Activity
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-white">
+                <Calendar className="w-5 h-5 text-emerald-500" />
+                Recent Activity
+              </h3>
+              <Button
+                variant="ghost"
+                className="text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                onClick={() => window.location.href = '/profile/history'}
+              >
+                View All History
+              </Button>
+            </div>
 
             <Card className="bg-neutral-900/50 border-neutral-800">
               <div className="divide-y divide-neutral-800">
