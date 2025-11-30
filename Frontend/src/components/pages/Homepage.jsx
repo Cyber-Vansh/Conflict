@@ -19,7 +19,8 @@ import {
   Activity,
   Medal,
   Star,
-  Code2
+  Code2,
+  Search
 } from "lucide-react";
 
 export default function Homepage() {
@@ -31,14 +32,10 @@ export default function Homepage() {
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      const headers = { Authorization: `Bearer ${token}` };
 
       const [profileRes, statsRes, duelsLeaderboardRes, havocLeaderboardRes] = await Promise.all([
-        api.get("/auth/profile", { headers }),
-        api.get("/auth/stats", { headers }),
+        api.get("/auth/profile"),
+        api.get("/auth/stats"),
         api.get("/leaderboard/global?type=duals&limit=5"),
         api.get("/leaderboard/global?type=havoc&limit=5"),
       ]);
@@ -112,6 +109,12 @@ export default function Homepage() {
               <Button variant="outline" className="gap-2 bg-white text-black hover:bg-neutral-200 border-0">
                 <Code2 className="w-4 h-4" />
                 Playground
+              </Button>
+            </Link>
+            <Link href="/friends">
+              <Button variant="outline" className="gap-2 bg-neutral-900 text-white hover:bg-neutral-800 border-neutral-800">
+                <Users className="w-4 h-4" />
+                Friends
               </Button>
             </Link>
             <Link href="/profile">
@@ -202,48 +205,52 @@ export default function Homepage() {
             </div>
 
             <div className="lg:col-span-4">
-              <div>
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
-                  <TrendingUp className="w-5 h-5 text-emerald-500" />
-                  Your Stats
-                </h2>
-                <Card className="bg-neutral-900/50 border-neutral-800 h-full p-6">
-                  <div className="grid grid-cols-2 gap-4 h-full">
-                    <div className="p-4 rounded-xl bg-neutral-800/50 border border-neutral-800 flex flex-col justify-center items-center text-center gap-2 hover:border-emerald-500/50 transition group">
-                      <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-500 mb-1">
-                        <Crown className="w-5 h-5" />
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
+                    <TrendingUp className="w-5 h-5 text-emerald-500" />
+                    Your Stats
+                  </h2>
+                  <Card className="bg-neutral-900/50 border-neutral-800 p-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 rounded-xl bg-neutral-800/50 border border-neutral-800 flex flex-col justify-center items-center text-center gap-2 hover:border-emerald-500/50 transition group">
+                        <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-500 mb-1">
+                          <Crown className="w-5 h-5" />
+                        </div>
+                        <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Crowns</div>
+                        <div className="text-2xl font-bold text-white">
+                          {(userData?.dualsCrowns || 0) + (userData?.havocCrowns || 0)}
+                        </div>
                       </div>
-                      <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Crowns</div>
-                      <div className="text-2xl font-bold text-white">
-                        {(userData?.dualsCrowns || 0) + (userData?.havocCrowns || 0)}
-                      </div>
-                    </div>
 
-                    <div className="p-4 rounded-xl bg-neutral-800/50 border border-neutral-800 flex flex-col justify-center items-center text-center gap-2 hover:border-emerald-500/50 transition group">
-                      <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500 mb-1">
-                        <Target className="w-5 h-5" />
+                      <div className="p-4 rounded-xl bg-neutral-800/50 border border-neutral-800 flex flex-col justify-center items-center text-center gap-2 hover:border-emerald-500/50 transition group">
+                        <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500 mb-1">
+                          <Target className="w-5 h-5" />
+                        </div>
+                        <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Win Rate</div>
+                        <div className="text-2xl font-bold text-white">{winRate}%</div>
                       </div>
-                      <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Win Rate</div>
-                      <div className="text-2xl font-bold text-white">{winRate}%</div>
-                    </div>
 
-                    <div className="p-4 rounded-xl bg-neutral-800/50 border border-neutral-800 flex flex-col justify-center items-center text-center gap-2 hover:border-emerald-500/50 transition group">
-                      <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500 mb-1">
-                        <Trophy className="w-5 h-5" />
+                      <div className="p-4 rounded-xl bg-neutral-800/50 border border-neutral-800 flex flex-col justify-center items-center text-center gap-2 hover:border-emerald-500/50 transition group">
+                        <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500 mb-1">
+                          <Trophy className="w-5 h-5" />
+                        </div>
+                        <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Battles</div>
+                        <div className="text-2xl font-bold text-white">{userData?.totalBattles || 0}</div>
                       </div>
-                      <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Battles</div>
-                      <div className="text-2xl font-bold text-white">{userData?.totalBattles || 0}</div>
-                    </div>
 
-                    <div className="p-4 rounded-xl bg-neutral-800/50 border border-neutral-800 flex flex-col justify-center items-center text-center gap-2 hover:border-emerald-500/50 transition group">
-                      <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500 mb-1">
-                        <Award className="w-5 h-5" />
+                      <div className="p-4 rounded-xl bg-neutral-800/50 border border-neutral-800 flex flex-col justify-center items-center text-center gap-2 hover:border-emerald-500/50 transition group">
+                        <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500 mb-1">
+                          <Award className="w-5 h-5" />
+                        </div>
+                        <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Wins</div>
+                        <div className="text-2xl font-bold text-white">{userData?.wins || 0}</div>
                       </div>
-                      <div className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Wins</div>
-                      <div className="text-2xl font-bold text-white">{userData?.wins || 0}</div>
                     </div>
-                  </div>
-                </Card>
+                  </Card>
+                </div>
+
+
               </div>
             </div>
           </div>

@@ -26,6 +26,39 @@ const initSocket = (server) => {
         socket.on("disconnect", () => {
             console.log("Client disconnected:", socket.id);
         });
+
+        // Chat Events
+        socket.on("join_chat", (userId) => {
+            socket.join(`user_${userId}`);
+            console.log(`Socket ${socket.id} joined user_${userId}`);
+        });
+
+        socket.on("private_message", async (data) => {
+            const { senderId, receiverId, content } = data;
+
+            // Save message to database
+            try {
+                const prisma = require("./prismaClient");
+                const message = await prisma.message.create({
+                    data: {
+                        senderId,
+                        receiverId,
+                        content,
+                        read: false
+                    },
+                    include: {
+                        sender: { select: { id: true, username: true, avatar: true } }
+                    }
+                });
+
+                // Emit to receiver
+                io.to(`user_${receiverId}`).emit("receive_message", message);
+                // Emit back to sender (for confirmation/optimistic UI update if needed)
+                io.to(`user_${senderId}`).emit("message_sent", message);
+            } catch (error) {
+                console.error("Error saving message:", error);
+            }
+        });
     });
 
     return io;

@@ -13,6 +13,7 @@ import {
     Terminal,
 } from "lucide-react";
 import api from "@/app/api";
+import { toast } from "sonner";
 
 export default function PlaygroundPage() {
     const router = useRouter();
@@ -54,7 +55,7 @@ export default function PlaygroundPage() {
 
     const handleRunCode = async () => {
         if (!code.trim()) {
-            alert("Please write some code first");
+            toast.warning("Please write some code first");
             return;
         }
 

@@ -77,10 +77,27 @@ model User {
   sentFriendRequests     Friendship[] @relation("FriendshipRequester")
   receivedFriendRequests Friendship[] @relation("FriendshipAddressee")
 
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+
   @@index([email])
   @@index([username])
   @@index([dualsCrowns(sort: Desc)])
   @@index([havocCrowns(sort: Desc)])
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  content   String   @db.Text
+  senderId  Int
+  sender    User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId Int
+  receiver  User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([senderId])
+  @@index([receiverId])
 }
 
 model Problem {

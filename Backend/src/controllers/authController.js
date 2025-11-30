@@ -122,12 +122,38 @@ const getProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { bio, avatar, fullName } = req.body;
+    const { bio, avatar, fullName, username, email } = req.body;
+
+    // Check if username or email is already taken by another user
+    if (username || email) {
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            username ? { username } : undefined,
+            email ? { email } : undefined,
+          ].filter(Boolean),
+          NOT: {
+            id: req.user.id,
+          },
+        },
+      });
+
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: existingUser.username === username
+            ? "Username already taken"
+            : "Email already taken",
+        });
+      }
+    }
 
     const updateData = {};
     if (bio !== undefined) updateData.bio = bio;
     if (avatar !== undefined) updateData.avatar = avatar;
     if (fullName !== undefined) updateData.fullName = fullName;
+    if (username !== undefined) updateData.username = username;
+    if (email !== undefined) updateData.email = email;
 
     const user = await prisma.user.update({
       where: { id: req.user.id },

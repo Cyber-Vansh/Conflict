@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import api from "@/app/api";
+import { toast } from "sonner";
 
 export default function SignupForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -26,7 +27,7 @@ export default function SignupForm() {
 
   const validate = () => {
     if (!form.fullName.trim() || !form.username.trim() || !form.email.trim() || !form.password) {
-      alert("Please fill all fields.");
+      toast.error("Please fill all fields.");
       return false;
     }
     return true;
@@ -61,10 +62,11 @@ export default function SignupForm() {
         console.log("User:", data.user);
       }
 
+      toast.success("Account created successfully!");
       router.push("/");
     } catch (err) {
       const message = err?.response?.data?.message || err?.message || "Something went wrong";
-      alert(message);
+      toast.error(message);
       console.error("[SignupForm] error:", err);
     } finally {
       setLoading(false);

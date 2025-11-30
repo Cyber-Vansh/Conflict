@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import api from "@/app/api"
+import { toast } from "sonner"
 
 export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -35,12 +36,12 @@ export default function LoginForm() {
       }
 
       localStorage.setItem("token", token)
-
+      toast.success("Login successful!");
       router.push("/");
     } catch (err) {
       const message =
         err?.response?.data?.message || err?.message || "Something went wrong"
-      alert(message)
+      toast.error(message)
       console.error("[LoginForm] login error:", err)
     } finally {
       setLoading(false)

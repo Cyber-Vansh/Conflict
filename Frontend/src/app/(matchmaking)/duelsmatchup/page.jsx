@@ -33,11 +33,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 export default function DuelsMatchupPage() {
   const router = useRouter();
-  const [mode, setMode] = useState("select"); // select, ranked, friendly-create, friendly-join, lobby
-  const [battleType, setBattleType] = useState(null); // "RANKED" or "FRIEND"
+  const [mode, setMode] = useState("select");
+  const [battleType, setBattleType] = useState(null);
   const [currentBattle, setCurrentBattle] = useState(null);
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -81,8 +82,8 @@ export default function DuelsMatchupPage() {
           router.push(`/compiler?battleId=${currentBattle.id}`);
         }
       } else {
-        alert(errorMsg || "Failed to start battle");
-        isStarting.current = false; // Only reset if it wasn't a "started" error
+        toast.error(errorMsg || "Failed to start battle");
+        isStarting.current = false;
       }
       setLoading(false);
     }
@@ -100,7 +101,7 @@ export default function DuelsMatchupPage() {
 
       if (!isParticipant) {
         console.log("User ID:", userId, "Participants:", updatedBattle.participants);
-        alert("You are not a participant in this battle");
+        toast.error("You are not a participant in this battle");
         setMode("select");
         setCurrentBattle(null);
         return;
@@ -126,14 +127,11 @@ export default function DuelsMatchupPage() {
       const socket = getSocket();
       socket.emit("join_battle", currentBattle.id);
 
-      // Initial poll to check if we should already start
       pollBattleStatus();
 
       socket.on("battle:update", (data) => {
         console.log("Battle update:", data);
         if (data.type === "player_joined") {
-          // Re-fetch battle to get full participant details
-          // Or manually update state if we trust the data
           pollBattleStatus();
         } else if (data.type === "started") {
           if (!isRedirecting.current) {
@@ -202,7 +200,7 @@ export default function DuelsMatchupPage() {
         console.log("Problems data:", problemsData);
 
         if (!Array.isArray(problemsData) || problemsData.length === 0) {
-          alert("No problems available. Please add problems to the database first.");
+          toast.error("No problems available. Please add problems to the database first.");
           setLoading(false);
           return;
         }
@@ -211,7 +209,7 @@ export default function DuelsMatchupPage() {
         console.log("Selected random problem:", randomProblem);
 
         if (!randomProblem || !randomProblem.id) {
-          alert("Invalid problem data. Please check your database.");
+          toast.error("Invalid problem data. Please check your database.");
           setLoading(false);
           return;
         }
@@ -236,7 +234,7 @@ export default function DuelsMatchupPage() {
       console.error("Error response:", error.response?.data);
       console.error("Error message:", error.message);
       const errorMsg = error.response?.data?.message || error.message || "Failed to find match";
-      alert(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -262,7 +260,7 @@ export default function DuelsMatchupPage() {
       setMode("lobby");
     } catch (error) {
       console.error("Error creating room:", error);
-      alert(error.response?.data?.message || "Failed to create room");
+      toast.error(error.response?.data?.message || "Failed to create room");
     } finally {
       setLoading(false);
     }
@@ -279,13 +277,13 @@ export default function DuelsMatchupPage() {
       const battle = battleResponse.data.data;
 
       if (battle.mode !== "FRIEND") {
-        alert("This is not a friendly match room");
+        toast.error("This is not a friendly match room");
         setLoading(false);
         return;
       }
 
       if (battle.status !== "WAITING") {
-        alert("This battle has already started or ended");
+        toast.error("This battle has already started or ended");
         setLoading(false);
         return;
       }
@@ -300,7 +298,7 @@ export default function DuelsMatchupPage() {
       setMode("lobby");
     } catch (error) {
       console.error("Error joining room:", error);
-      alert(error.response?.data?.message || "Failed to join room. Please check the Room ID.");
+      toast.error(error.response?.data?.message || "Failed to join room. Please check the Room ID.");
     } finally {
       setLoading(false);
     }

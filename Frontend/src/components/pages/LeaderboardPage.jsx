@@ -13,9 +13,12 @@ import {
     Target,
     Swords,
     Users,
-    Search
+    Search,
+    UserPlus,
+    Check
 } from "lucide-react";
 import api from "@/app/api";
+import { toast } from "sonner";
 
 export default function LeaderboardPage() {
     const router = useRouter();
@@ -24,6 +27,23 @@ export default function LeaderboardPage() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [currentUser, setCurrentUser] = useState(null);
+    const [sentRequests, setSentRequests] = useState([]);
+
+    const handleAddFriend = async (userId) => {
+        try {
+            await api.post("/friends/request", { userId });
+            toast.success("Friend request sent!");
+            setSentRequests([...sentRequests, userId]);
+        } catch (error) {
+            if (error.response && error.response.status === 400) {
+                setSentRequests([...sentRequests, userId]);
+                toast.info("Friend request already sent");
+            } else {
+                console.error("Error sending friend request:", error);
+                toast.error("Failed to send friend request");
+            }
+        }
+    };
 
     useEffect(() => {
         fetchCurrentUser();
@@ -212,6 +232,23 @@ export default function LeaderboardPage() {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-center text-neutral-400">
                                                     {player.totalBattles}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right">
+                                                    {!isCurrentUser && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="hover:bg-emerald-500/10 hover:text-emerald-500"
+                                                            onClick={() => handleAddFriend(player.id)}
+                                                            disabled={sentRequests.includes(player.id)}
+                                                        >
+                                                            {sentRequests.includes(player.id) ? (
+                                                                <Check className="w-4 h-4 text-emerald-500" />
+                                                            ) : (
+                                                                <UserPlus className="w-4 h-4" />
+                                                            )}
+                                                        </Button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         );

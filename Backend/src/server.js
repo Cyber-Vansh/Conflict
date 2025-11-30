@@ -10,26 +10,30 @@ const battleRoutes = require("./routes/battleRoutes");
 const submissionRoutes = require("./routes/submissionRoutes");
 const leaderboardRoutes = require("./routes/leaderboardRoutes");
 const friendRoutes = require("./routes/friendRoutes");
+const chatRoutes = require("./routes/chatRoutes"); // Added chatRoutes
 const run_code = require("./routes/run_code");
 
 const http = require("http");
-const { initSocket } = require("./socket");
+const { initSocket } = require("./socket"); // Kept original initSocket
 
 const app = express();
 const server = http.createServer(app);
 
 // Initialize Socket.io
-initSocket(server);
+initSocket(server); // Kept original initSocket
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-app.use("/auth", authRoutes);
-app.use("/problems", problemRoutes);
-app.use("/battles", battleRoutes);
-app.use("/submissions", submissionRoutes);
-app.use("/leaderboard", leaderboardRoutes);
-app.use("/friends", friendRoutes);
+// Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/problems", problemRoutes);
+app.use("/api/battles", battleRoutes);
+app.use("/api/submissions", submissionRoutes);
+app.use("/api/leaderboard", leaderboardRoutes);
+app.use("/api/friends", friendRoutes);
+app.use("/api/chat", chatRoutes); // Added chat route
 app.use("/", run_code);
 
 const PORT = process.env.PORT || 3000;

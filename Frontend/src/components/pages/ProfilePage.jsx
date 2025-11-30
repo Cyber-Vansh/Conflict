@@ -4,6 +4,18 @@ import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import api from "@/app/api";
 import {
   Trophy,
@@ -15,17 +27,43 @@ import {
   Award,
   Medal,
   Star,
-  Edit
+  Edit,
+  Loader2
 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function ProfilePage() {
   const [userData, setUserData] = useState(null);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Edit Profile State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    fullName: "",
+    username: "",
+    email: "",
+    bio: "",
+    avatar: ""
+  });
+  const [editError, setEditError] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+
   useEffect(() => {
     fetchProfileData();
   }, []);
+
+  useEffect(() => {
+    if (userData) {
+      setEditForm({
+        fullName: userData.fullName || "",
+        username: userData.username || "",
+        email: userData.email || "",
+        bio: userData.bio || "",
+        avatar: userData.avatar || ""
+      });
+    }
+  }, [userData]);
 
   const fetchProfileData = async () => {
     try {
@@ -45,6 +83,28 @@ export default function ProfilePage() {
     } catch (error) {
       console.error("Error fetching profile:", error);
       setLoading(false);
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    setEditLoading(true);
+    setEditError("");
+    try {
+      const token = localStorage.getItem("token");
+      const response = await api.put("/auth/profile", editForm, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setUserData(response.data.data);
+      setIsEditing(false);
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      const msg = error.response?.data?.message || "Failed to update profile";
+      setEditError(msg);
+      toast.error(msg);
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -83,7 +143,10 @@ export default function ProfilePage() {
                     {userData?.username?.[0]?.toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="absolute -bottom-2 -right-2 p-2 bg-emerald-600 rounded-full cursor-pointer hover:bg-emerald-500 transition">
+                <div
+                  className="absolute -bottom-2 -right-2 p-2 bg-emerald-600 rounded-full cursor-pointer hover:bg-emerald-500 transition"
+                  onClick={() => setIsEditing(true)}
+                >
                   <Edit className="w-4 h-4 text-white" />
                 </div>
               </div>
@@ -95,9 +158,89 @@ export default function ProfilePage() {
                     <h1 className="text-3xl font-bold mb-1 text-white">{userData?.fullName || "User"}</h1>
                     <p className="text-neutral-300">@{userData?.username}</p>
                   </div>
-                  <Button variant="outline" className="mt-4 md:mt-0 border-neutral-700 hover:border-emerald-500/50 bg-white text-neutral-900 hover:!text-white hover:bg-emerald-500/10">
-                    Edit Profile
-                  </Button>
+
+                  <Dialog open={isEditing} onOpenChange={setIsEditing}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="mt-4 md:mt-0 border-neutral-700 hover:border-emerald-500/50 bg-white text-neutral-900 hover:!text-white hover:bg-emerald-500/10">
+                        Edit Profile
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-neutral-900 border-neutral-800 text-white sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Edit Profile</DialogTitle>
+                        <DialogDescription className="text-neutral-400">
+                          Make changes to your profile here. Click save when you're done.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      {editError && (
+                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-500 text-sm">
+                          {editError}
+                        </div>
+                      )}
+
+                      <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="fullName">Full Name</Label>
+                          <Input
+                            id="fullName"
+                            value={editForm.fullName}
+                            onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                            className="bg-neutral-800 border-neutral-700 focus:border-emerald-500"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="username">Username</Label>
+                          <Input
+                            id="username"
+                            value={editForm.username}
+                            onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                            className="bg-neutral-800 border-neutral-700 focus:border-emerald-500"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={editForm.email}
+                            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                            className="bg-neutral-800 border-neutral-700 focus:border-emerald-500"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="bio">Bio</Label>
+                          <Textarea
+                            id="bio"
+                            value={editForm.bio}
+                            onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                            className="bg-neutral-800 border-neutral-700 focus:border-emerald-500 resize-none"
+                            rows={3}
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="avatar">Avatar URL</Label>
+                          <Input
+                            id="avatar"
+                            value={editForm.avatar}
+                            onChange={(e) => setEditForm({ ...editForm, avatar: e.target.value })}
+                            className="bg-neutral-800 border-neutral-700 focus:border-emerald-500"
+                            placeholder="https://..."
+                          />
+                        </div>
+                      </div>
+
+                      <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsEditing(false)} className="hover:bg-neutral-800 text-neutral-400">
+                          Cancel
+                        </Button>
+                        <Button onClick={handleUpdateProfile} disabled={editLoading} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                          {editLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                          Save Changes
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
 
                 {userData?.bio && (

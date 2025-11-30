@@ -33,6 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 export default function HavocMatchupPage() {
   const router = useRouter();
@@ -83,7 +84,7 @@ export default function HavocMatchupPage() {
           router.push(`/compiler?battleId=${currentBattle.id}`);
         }
       } else {
-        alert(errorMsg || "Failed to start battle");
+        toast.error(errorMsg || "Failed to start battle");
         isStarting.current = false;
       }
       setLoading(false);
@@ -102,7 +103,7 @@ export default function HavocMatchupPage() {
 
       if (!isParticipant) {
         console.log("User ID:", userId, "Participants:", updatedBattle.participants);
-        alert("You are not a participant in this battle");
+        toast.error("You are not a participant in this battle");
         setMode("select");
         setCurrentBattle(null);
         return;
@@ -133,13 +134,13 @@ export default function HavocMatchupPage() {
       const socket = getSocket();
       socket.emit("join_battle", currentBattle.id);
 
-      // Initial poll
+      socket.emit("join_battle", currentBattle.id);
+
       pollBattleStatus();
 
       socket.on("battle:update", (data) => {
         console.log("Battle update:", data);
         if (data.type === "player_joined") {
-          // Re-fetch battle to get full participant details
           pollBattleStatus();
         } else if (data.type === "started") {
           if (!isRedirecting.current) {
@@ -223,7 +224,7 @@ export default function HavocMatchupPage() {
         const problemsResponse = await api.get("/problems?isPublic=true&limit=50");
         const problemsData = problemsResponse.data?.data?.problems || problemsResponse.data?.problems || [];
         if (problemsData.length === 0) {
-          alert("No problems available");
+          toast.error("No problems available");
           setLoading(false);
           return;
         }
@@ -247,7 +248,7 @@ export default function HavocMatchupPage() {
       }
     } catch (error) {
       console.error("Error finding match:", error);
-      alert(error.response?.data?.message || "Failed to find match");
+      toast.error(error.response?.data?.message || "Failed to find match");
     } finally {
       setLoading(false);
     }
@@ -272,7 +273,7 @@ export default function HavocMatchupPage() {
       setMode("lobby");
     } catch (error) {
       console.error("Error creating room:", error);
-      alert(error.response?.data?.message || "Failed to create room");
+      toast.error(error.response?.data?.message || "Failed to create room");
     } finally {
       setLoading(false);
     }
@@ -287,13 +288,13 @@ export default function HavocMatchupPage() {
       const battle = battleResponse.data.data;
 
       if (battle.mode !== "FRIEND") {
-        alert("This is not a friendly match room");
+        toast.error("This is not a friendly match room");
         setLoading(false);
         return;
       }
 
       if (battle.status !== "WAITING") {
-        alert("This battle has already started or ended");
+        toast.error("This battle has already started or ended");
         setLoading(false);
         return;
       }
@@ -308,7 +309,7 @@ export default function HavocMatchupPage() {
       setMode("lobby");
     } catch (error) {
       console.error("Error joining room:", error);
-      alert(error.response?.data?.message || "Failed to join room");
+      toast.error(error.response?.data?.message || "Failed to join room");
     } finally {
       setLoading(false);
     }

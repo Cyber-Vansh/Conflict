@@ -33,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 export default function BattlePage() {
   const router = useRouter();
@@ -121,7 +122,7 @@ export default function BattlePage() {
     } catch (error) {
       console.error("Error fetching battle:", error);
       if (error.response && (error.response.status === 404 || error.response.status === 403)) {
-        alert("Failed to load battle");
+        toast.error("Failed to load battle");
         router.push("/");
       }
     }
@@ -192,7 +193,7 @@ export default function BattlePage() {
 
   const handleRunCode = async () => {
     if (!code.trim()) {
-      alert("Please write some code first");
+      toast.warning("Please write some code first");
       return;
     }
 
@@ -233,7 +234,7 @@ export default function BattlePage() {
         console.log("Test cases:", testCases);
 
         if (testCases.length === 0) {
-          alert("No test cases available for this problem. Please use custom input.");
+          toast.info("No test cases available for this problem. Please use custom input.");
           setLoading(false);
           return;
         }
@@ -304,7 +305,7 @@ export default function BattlePage() {
       console.log("Submission response:", response.data);
       console.log("Submission full response:", response);
 
-      alert("Submission successful! Your code is being evaluated.");
+      toast.success("Submission successful! Your code is being evaluated.");
       setActiveTab("submissions");
       setPollingSubmissions(true);
 
@@ -315,7 +316,7 @@ export default function BattlePage() {
     } catch (error) {
       console.error("Error submitting code:", error);
       console.error("Error response:", error.response);
-      alert(error.response?.data?.message || "Failed to submit code");
+      toast.error(error.response?.data?.message || "Failed to submit code");
     } finally {
       setSubmitting(false);
     }

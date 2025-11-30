@@ -15,6 +15,7 @@ import {
     Loader2
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 export default function BattleHistoryPage() {
     const [battles, setBattles] = useState([]);
@@ -74,6 +75,7 @@ export default function BattleHistoryPage() {
             }));
         } catch (error) {
             console.error("Error fetching history:", error);
+            toast.error("Failed to load battle history");
         } finally {
             setLoading(false);
         }

@@ -1,21 +1,15 @@
 const express = require("express");
-const {
-    sendFriendRequest,
-    respondToRequest,
-    getFriends,
-    getPendingRequests,
-    removeFriend,
-    blockUser,
-} = require("../controllers/friendController");
+const { sendRequest, acceptRequest, rejectRequest, getFriends, getRequests, searchUsers, removeFriend } = require("../controllers/friendController");
 const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-router.post("/request", protect, sendFriendRequest);
-router.put("/:id", protect, respondToRequest);
+router.post("/request", protect, sendRequest);
+router.post("/accept", protect, acceptRequest);
+router.post("/reject", protect, rejectRequest);
 router.get("/", protect, getFriends);
-router.get("/pending", protect, getPendingRequests);
-router.delete("/:id", protect, removeFriend);
-router.post("/block", protect, blockUser);
+router.get("/requests", protect, getRequests);
+router.get("/search", protect, searchUsers);
+router.post("/remove", protect, removeFriend);
 
 module.exports = router;
