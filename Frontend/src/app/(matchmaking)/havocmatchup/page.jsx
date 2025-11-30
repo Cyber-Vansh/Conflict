@@ -40,23 +40,48 @@ export default function HavocMatchupPage() {
   const [mode, setMode] = useState("select");
   const [battleType, setBattleType] = useState(null);
   const [currentBattle, setCurrentBattle] = useState(null);
-  const [problems, setProblems] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [pollingInterval, setPollingInterval] = useState(null);
-
-
   const [roomId, setRoomId] = useState("");
-  const [selectedProblem, setSelectedProblem] = useState(null);
-  const [duration, setDuration] = useState(900);
   const [maxPlayers, setMaxPlayers] = useState(10);
   const [countdown, setCountdown] = useState(30);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const isRedirecting = React.useRef(false);
   const isStarting = React.useRef(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) router.push("/login");
+    if (!token) {
+      console.log("No token found, redirecting...");
+      router.push("/login");
+      return;
+    }
+
+    const userStr = localStorage.getItem("user");
+
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+
+        setCurrentUserId(user.id);
+      } catch (e) {
+        console.error("Failed to parse user from local storage", e);
+      }
+    } else {
+
+      api.get("/auth/profile", { headers: { Authorization: `Bearer ${token}` } })
+        .then(res => {
+          if (res.data.success) {
+            const user = res.data.data;
+            localStorage.setItem("user", JSON.stringify(user));
+            setCurrentUserId(user.id);
+            console.log("Fetched and saved user:", user);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch profile:", err);
+
+        });
+    }
   }, [router]);
 
   const startBattle = async () => {
@@ -130,10 +155,8 @@ export default function HavocMatchupPage() {
   };
 
   useEffect(() => {
-    if (mode === "lobby" && currentBattle) {
+    if (mode === "lobby" && currentBattle?.id) {
       const socket = getSocket();
-      socket.emit("join_battle", currentBattle.id);
-
       socket.emit("join_battle", currentBattle.id);
 
       pollBattleStatus();
@@ -155,10 +178,11 @@ export default function HavocMatchupPage() {
         socket.off("battle:update");
       };
     }
-  }, [mode, currentBattle]);
+  }, [mode, currentBattle?.id]);
 
   useEffect(() => {
-    if (mode === "lobby" && currentBattle && currentBattle.status === "WAITING") {
+
+    if (mode === "lobby" && currentBattle && currentBattle.status === "WAITING" && currentBattle.mode === "RANKED") {
       const timer = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
@@ -181,22 +205,7 @@ export default function HavocMatchupPage() {
 
 
 
-  const fetchProblems = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get("/problems?isPublic=true&limit=50");
-      const problemsData = response.data?.data?.problems || response.data?.problems || [];
-      setProblems(Array.isArray(problemsData) ? problemsData : []);
-      if (problemsData.length > 0) {
-        setSelectedProblem(problemsData[0].id);
-      }
-    } catch (error) {
-      console.error("Error fetching problems:", error);
-      setProblems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [loading, setLoading] = useState(false);
 
   const findRankedMatch = async () => {
     try {
@@ -221,23 +230,12 @@ export default function HavocMatchupPage() {
         setCurrentBattle(updatedBattleResponse.data.data);
         setMode("lobby");
       } else {
-        const problemsResponse = await api.get("/problems?isPublic=true&limit=50");
-        const problemsData = problemsResponse.data?.data?.problems || problemsResponse.data?.problems || [];
-        if (problemsData.length === 0) {
-          toast.error("No problems available");
-          setLoading(false);
-          return;
-        }
-
-        const randomProblem = problemsData[Math.floor(Math.random() * problemsData.length)];
-
+        // Create a new ranked battle - backend handles problem selection and duration
         const createResponse = await api.post(
           "/battles",
           {
             type: "HAVOC",
             mode: "RANKED",
-            problemId: randomProblem.id,
-            duration: 900,
             maxPlayers: 10,
           },
           { headers: { Authorization: `Bearer ${token}` } }
@@ -258,13 +256,12 @@ export default function HavocMatchupPage() {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
+
       const response = await api.post(
         "/battles",
         {
           type: "HAVOC",
           mode: "FRIEND",
-          problemId: selectedProblem,
-          duration: duration,
           maxPlayers: maxPlayers,
         },
         { headers: { Authorization: `Bearer ${token}` } }
@@ -439,11 +436,21 @@ export default function HavocMatchupPage() {
 
               <div className="space-y-3">
                 <Button
-                  onClick={() => { setBattleType("FRIEND"); setMode("friendly-create"); fetchProblems(); }}
+                  onClick={() => { setBattleType("FRIEND"); createFriendlyRoom(); }}
+                  disabled={loading}
                   className="w-full bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700"
                 >
-                  <Target className="w-4 h-4 mr-2" />
-                  Create Room
+                  {loading && battleType === "FRIEND" ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Target className="w-4 h-4 mr-2" />
+                      Create Room
+                    </>
+                  )}
                 </Button>
                 <Button
                   onClick={() => { setBattleType("FRIEND"); setMode("friendly-join"); }}
@@ -462,110 +469,7 @@ export default function HavocMatchupPage() {
   }
 
 
-  if (mode === "friendly-create") {
-    return (
-      <div className="min-h-screen bg-neutral-950 text-white">
-        <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-neutral-950 to-neutral-950 pointer-events-none" />
 
-        <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <Button
-            variant="ghost"
-            onClick={() => setMode("select")}
-            className="text-neutral-400 hover:text-white mb-8"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-
-          <h1 className="text-3xl font-bold mb-6 text-white">Create Havoc Room</h1>
-
-          <Card className="bg-neutral-900/50 border-neutral-800 p-6 space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-neutral-300 mb-3">
-                Select Problem
-              </label>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
-                </div>
-              ) : problems.length === 0 ? (
-                <div className="text-center py-8 text-neutral-500">
-                  No problems available
-                </div>
-              ) : (
-                <select
-                  value={selectedProblem || ""}
-                  onChange={(e) => setSelectedProblem(Number(e.target.value))}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white"
-                >
-                  {problems.map((problem) => (
-                    <option key={problem.id} value={problem.id}>
-                      {problem.title} ({problem.difficulty})
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-300 mb-3">
-                Duration (minutes)
-              </label>
-              <div className="grid grid-cols-4 gap-3">
-                {[10, 15, 20, 30].map((min) => (
-                  <button
-                    key={min}
-                    onClick={() => setDuration(min * 60)}
-                    className={`p-3 rounded-lg border transition ${duration === min * 60
-                      ? "bg-emerald-600 border-emerald-500 text-white"
-                      : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-neutral-600"
-                      }`}
-                  >
-                    {min} min
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-300 mb-3">
-                Max Players
-              </label>
-              <div className="grid grid-cols-5 gap-2">
-                {[2, 4, 6, 8, 10].map((num) => (
-                  <button
-                    key={num}
-                    onClick={() => setMaxPlayers(num)}
-                    className={`p-3 rounded-lg border transition ${maxPlayers === num
-                      ? "bg-emerald-600 border-emerald-500 text-white"
-                      : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-neutral-600"
-                      }`}
-                  >
-                    {num}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <Button
-              onClick={createFriendlyRoom}
-              disabled={!selectedProblem || loading}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating Room...
-                </>
-              ) : (
-                "Create Room"
-              )}
-            </Button>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
 
   if (mode === "friendly-join") {
@@ -631,8 +535,19 @@ export default function HavocMatchupPage() {
     const maxPlayers = currentBattle.maxPlayers || 10;
     const canStart = participants.length >= 2;
     const emptySlots = Array(maxPlayers - participants.length).fill(null);
-    const userId = participants.find((p) => p.user)?.user?.id;
     const isFriendly = currentBattle.mode === "FRIEND";
+
+
+    const sortedParticipants = [...participants].sort((a, b) => new Date(a.joinedAt) - new Date(b.joinedAt));
+    const hostId = sortedParticipants.length > 0 ? sortedParticipants[0].userId : null;
+
+    console.log("Participants:", participants);
+    console.log("Sorted Participants:", sortedParticipants);
+    console.log("Host ID:", hostId, "Type:", typeof hostId);
+    console.log("Current User ID:", currentUserId, "Type:", typeof currentUserId);
+    console.log("Is Host:", currentUserId === hostId);
+
+    const isHost = currentUserId === hostId;
 
     return (
       <div className="min-h-screen bg-neutral-950 text-white">
@@ -682,14 +597,53 @@ export default function HavocMatchupPage() {
               <div className="flex items-center gap-3">
                 <Clock className="w-6 h-6 text-blue-400" />
                 <div>
-                  <p className="text-lg font-bold text-white">
-                    Battle starts in: {countdown}s
-                  </p>
-                  <p className="text-sm text-neutral-400">
-                    Waiting for players ({participants.length}/{maxPlayers}) • Minimum 2 required
-                  </p>
+                  {isFriendly ? (
+                    <>
+                      <p className="text-lg font-bold text-white">
+                        Waiting for players...
+                      </p>
+                      <p className="text-sm text-neutral-400">
+                        {participants.length}/{maxPlayers} players joined • Minimum 2 required
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-lg font-bold text-white">
+                        Battle starts in: {countdown}s
+                      </p>
+                      <p className="text-sm text-neutral-400">
+                        Waiting for players ({participants.length}/{maxPlayers}) • Minimum 2 required
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
+
+              {isFriendly && isHost && (
+                <Button
+                  onClick={startBattle}
+                  disabled={!canStart || loading}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Starting...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4 mr-2" />
+                      Start Battle
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {isFriendly && !isHost && (
+                <div className="text-sm text-neutral-400 italic">
+                  Waiting for host to start...
+                </div>
+              )}
             </div>
           </Card>
 
@@ -714,8 +668,11 @@ export default function HavocMatchupPage() {
                     <div className="text-sm font-medium text-white truncate w-full">
                       {participant.user?.username}
                     </div>
-                    {participant.userId === userId && (
+                    {participant.userId === currentUserId && (
                       <span className="text-xs text-emerald-500">You</span>
+                    )}
+                    {participant.userId === hostId && isFriendly && (
+                      <span className="text-xs text-yellow-500 ml-1">(Host)</span>
                     )}
                   </div>
                 </div>

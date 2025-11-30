@@ -5,27 +5,89 @@ const createBattle = async (req, res) => {
     try {
         const { type, mode, problemId, duration, maxPlayers } = req.body;
 
-        if (!type || !mode || !problemId || !duration) {
+        if (!type || !mode) {
             return res.status(400).json({
                 success: false,
-                message: "Type, mode, problemId, and duration are required",
+                message: "Type and mode are required",
             });
         }
 
+        let selectedProblemId = problemId;
+        let selectedDuration = duration;
+
+
+        if (!selectedProblemId) {
+            const count = await prisma.problem.count({
+                where: { isPublic: true }
+            });
+
+            if (count === 0) {
+                return res.status(400).json({ success: false, message: "No public problems available" });
+            }
+
+            const skip = Math.floor(Math.random() * count);
+            const randomProblem = await prisma.problem.findFirst({
+                where: { isPublic: true },
+                skip: skip,
+                select: { id: true, difficulty: true }
+            });
+
+            if (!randomProblem) {
+                return res.status(400).json({ success: false, message: "Failed to select a random problem" });
+            }
+
+            selectedProblemId = randomProblem.id;
+
+
+            if (!selectedDuration) {
+                switch (randomProblem.difficulty) {
+                    case "EASY":
+                        selectedDuration = 5 * 60;
+                        break;
+                    case "MEDIUM":
+                        selectedDuration = 10 * 60;
+                        break;
+                    case "HARD":
+                        selectedDuration = 15 * 60;
+                        break;
+                    default:
+                        selectedDuration = 10 * 60;
+                }
+            }
+        }
+
+
         const problem = await prisma.problem.findUnique({
-            where: { id: parseInt(problemId) },
+            where: { id: parseInt(selectedProblemId) },
         });
 
         if (!problem) {
             return res.status(404).json({ success: false, message: "Problem not found" });
         }
 
+
+        if (!selectedDuration) {
+            switch (problem.difficulty) {
+                case "EASY":
+                    selectedDuration = 5 * 60;
+                    break;
+                case "MEDIUM":
+                    selectedDuration = 10 * 60;
+                    break;
+                case "HARD":
+                    selectedDuration = 15 * 60;
+                    break;
+                default:
+                    selectedDuration = 10 * 60;
+            }
+        }
+
         const battle = await prisma.battle.create({
             data: {
                 type,
                 mode,
-                problemId: parseInt(problemId),
-                duration: parseInt(duration),
+                problemId: parseInt(selectedProblemId),
+                duration: parseInt(selectedDuration),
                 maxPlayers: maxPlayers || (type === "DUALS" ? 2 : 10),
                 participants: {
                     create: {
@@ -339,13 +401,21 @@ async function finishBattle(battleId) {
             score: p.score,
         }));
 
+        const allZeroScores = rankedParticipants.every(p => p.score === 0);
+
         const crownChanges = rankedParticipants.map((p, index) => {
             if (battle.mode !== "RANKED") return 0;
+
+
+            if (allZeroScores) return 0;
 
             if (battle.type === "DUALS") {
                 if (p.rank === 1) return 25;
                 return -25;
             } else {
+
+                if (p.score === 0) return -15;
+
                 if (p.rank === 1) return 50;
                 if (p.rank === 2) return 25;
                 if (p.rank === 3) return 10;

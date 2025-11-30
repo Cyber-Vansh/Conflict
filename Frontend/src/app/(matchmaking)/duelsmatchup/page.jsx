@@ -40,14 +40,8 @@ export default function DuelsMatchupPage() {
   const [mode, setMode] = useState("select");
   const [battleType, setBattleType] = useState(null);
   const [currentBattle, setCurrentBattle] = useState(null);
-  const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [pollingInterval, setPollingInterval] = useState(null);
-
-
   const [roomId, setRoomId] = useState("");
-  const [selectedProblem, setSelectedProblem] = useState(null);
-  const [duration, setDuration] = useState(600);
 
   const isRedirecting = React.useRef(false);
   const isStarting = React.useRef(false);
@@ -150,29 +144,13 @@ export default function DuelsMatchupPage() {
 
 
 
-  const fetchProblems = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get("/problems?isPublic=true&limit=50");
-      const problemsData = response.data?.data?.problems || response.data?.problems || [];
-      setProblems(Array.isArray(problemsData) ? problemsData : []);
-      if (problemsData.length > 0) {
-        setSelectedProblem(problemsData[0].id);
-      }
-    } catch (error) {
-      console.error("Error fetching problems:", error);
-      setProblems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
 
   const findRankedMatch = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-
 
       const response = await api.get("/battles?type=DUALS&status=WAITING&mode=RANKED");
       const availableBattles = response.data.data || [];
@@ -192,35 +170,12 @@ export default function DuelsMatchupPage() {
         setCurrentBattle(updatedBattleResponse.data.data);
         setMode("lobby");
       } else {
-
-        const problemsResponse = await api.get("/problems?isPublic=true&limit=50");
-        console.log("Problems response:", problemsResponse.data);
-
-        const problemsData = problemsResponse.data?.data?.problems || problemsResponse.data?.problems || problemsResponse.data?.data || [];
-        console.log("Problems data:", problemsData);
-
-        if (!Array.isArray(problemsData) || problemsData.length === 0) {
-          toast.error("No problems available. Please add problems to the database first.");
-          setLoading(false);
-          return;
-        }
-
-        const randomProblem = problemsData[Math.floor(Math.random() * problemsData.length)];
-        console.log("Selected random problem:", randomProblem);
-
-        if (!randomProblem || !randomProblem.id) {
-          toast.error("Invalid problem data. Please check your database.");
-          setLoading(false);
-          return;
-        }
-
+        // Create a new ranked battle - backend handles problem selection and duration
         const createResponse = await api.post(
           "/battles",
           {
             type: "DUALS",
             mode: "RANKED",
-            problemId: randomProblem.id,
-            duration: 600,
             maxPlayers: 2,
           },
           { headers: { Authorization: `Bearer ${token}` } }
@@ -231,8 +186,6 @@ export default function DuelsMatchupPage() {
       }
     } catch (error) {
       console.error("Error finding match:", error);
-      console.error("Error response:", error.response?.data);
-      console.error("Error message:", error.message);
       const errorMsg = error.response?.data?.message || error.message || "Failed to find match";
       toast.error(errorMsg);
     } finally {
@@ -245,13 +198,12 @@ export default function DuelsMatchupPage() {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
+
       const response = await api.post(
         "/battles",
         {
           type: "DUALS",
           mode: "FRIEND",
-          problemId: selectedProblem,
-          duration: duration,
           maxPlayers: 2,
         },
         { headers: { Authorization: `Bearer ${token}` } }
@@ -430,11 +382,21 @@ export default function DuelsMatchupPage() {
 
               <div className="space-y-3">
                 <Button
-                  onClick={() => { setBattleType("FRIEND"); setMode("friendly-create"); fetchProblems(); }}
+                  onClick={() => { setBattleType("FRIEND"); createFriendlyRoom(); }}
+                  disabled={loading}
                   className="w-full bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700"
                 >
-                  <Target className="w-4 h-4 mr-2" />
-                  Create Room
+                  {loading && battleType === "FRIEND" ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Target className="w-4 h-4 mr-2" />
+                      Create Room
+                    </>
+                  )}
                 </Button>
                 <Button
                   onClick={() => { setBattleType("FRIEND"); setMode("friendly-join"); }}
@@ -453,90 +415,7 @@ export default function DuelsMatchupPage() {
   }
 
 
-  if (mode === "friendly-create") {
-    return (
-      <div className="min-h-screen bg-neutral-950 text-white">
-        <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-neutral-950 to-neutral-950 pointer-events-none" />
 
-        <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <Button
-            variant="ghost"
-            onClick={() => setMode("select")}
-            className="text-neutral-400 hover:text-white mb-8"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-
-          <h1 className="text-3xl font-bold mb-6 text-white">Create Friendly Room</h1>
-
-          <Card className="bg-neutral-900/50 border-neutral-800 p-6 space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-neutral-300 mb-3">
-                Select Problem
-              </label>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
-                </div>
-              ) : problems.length === 0 ? (
-                <div className="text-center py-8 text-neutral-500">
-                  No problems available
-                </div>
-              ) : (
-                <select
-                  value={selectedProblem || ""}
-                  onChange={(e) => setSelectedProblem(Number(e.target.value))}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white"
-                >
-                  {problems.map((problem) => (
-                    <option key={problem.id} value={problem.id}>
-                      {problem.title} ({problem.difficulty})
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-300 mb-3">
-                Duration (minutes)
-              </label>
-              <div className="grid grid-cols-4 gap-3">
-                {[5, 10, 15, 30].map((min) => (
-                  <button
-                    key={min}
-                    onClick={() => setDuration(min * 60)}
-                    className={`p-3 rounded-lg border transition ${duration === min * 60
-                      ? "bg-emerald-600 border-emerald-500 text-white"
-                      : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-neutral-600"
-                      }`}
-                  >
-                    {min} min
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <Button
-              onClick={createFriendlyRoom}
-              disabled={!selectedProblem || loading}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating Room...
-                </>
-              ) : (
-                "Create Room"
-              )}
-            </Button>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
 
   if (mode === "friendly-join") {
