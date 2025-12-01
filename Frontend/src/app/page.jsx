@@ -5,7 +5,6 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
 import Homepage from "@/components/pages/Homepage"
-import ProfilePage from "@/components/pages/ProfilePage"
 
 export default function Home() {
   const router = useRouter();
