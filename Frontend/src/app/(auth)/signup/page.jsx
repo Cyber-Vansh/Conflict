@@ -1,5 +1,3 @@
-"use client";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Swords } from "lucide-react";
 import SignupForm from "@/components/auth/SignupForm";
@@ -29,3 +27,7 @@ export default function SignupPage() {
     </div>
   );
 }
+
+export const metadata = {
+  title: "Signup | Conflict",
+};
