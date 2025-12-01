@@ -19,6 +19,8 @@ async function main() {
         email: "admin@conflict.com",
         password: hashedPassword,
         bio: "System Administrator",
+        dualsCrowns: 0,
+        havocCrowns: 0,
       },
     });
     console.log("Created admin user");
