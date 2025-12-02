@@ -27,14 +27,14 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/problems", problemRoutes);
-app.use("/api/battles", battleRoutes);
-app.use("/api/submissions", submissionRoutes);
-app.use("/api/leaderboard", leaderboardRoutes);
-app.use("/api/friends", friendRoutes);
-app.use("/api/chat", chatRoutes);
-app.use("/api", run_code);
+app.use("/auth", authRoutes);
+app.use("/problems", problemRoutes);
+app.use("/battles", battleRoutes);
+app.use("/submissions", submissionRoutes);
+app.use("/leaderboard", leaderboardRoutes);
+app.use("/friends", friendRoutes);
+app.use("/chat", chatRoutes);
+app.use("/", run_code);
 
 const PORT = process.env.PORT || 3000;
 

@@ -51,9 +51,7 @@ const initSocket = (server) => {
                     }
                 });
 
-                // Emit to receiver
                 io.to(`user_${receiverId}`).emit("receive_message", message);
-                // Emit back to sender (for confirmation/optimistic UI update if needed)
                 io.to(`user_${senderId}`).emit("message_sent", message);
             } catch (error) {
                 console.error("Error saving message:", error);
