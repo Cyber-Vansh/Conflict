@@ -8,12 +8,12 @@ const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST;
 
 const runCode = async (req, res) => {
-  const { source_code, language_id, stdin } = req.body;
+  const { source_code, language_id, stdin, expected_output } = req.body;
 
   try {
     const submission = await axios.post(
       `${JUDGE0_URL}/submissions?base64_encoded=false&wait=false`,
-      { source_code, language_id, stdin },
+      { source_code, language_id, stdin, expected_output },
       {
         headers: {
           "Content-Type": "application/json",
